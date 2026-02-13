@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <title>Årshjul</title>
+  <style>
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    margin: 2rem;
+  }
+
+  h1 {
+    margin-bottom: 2rem;
+  }
+
+  section {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #ddd;
+  }
+
+  h2 {
+    margin-bottom: 0.5rem;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+
+  li {
+    margin-bottom: 0.3rem;
+  }
+.day-item {
+  all: unset;
+  display: grid;
+  grid-template-columns: 2.5em 1.8em auto;
+  align-items: center;
+  width: 100%;
+  cursor: pointer;
+}
+
+.day {
+  min-width: 2em;
+  display: inline-block;
+}
+
+li {
+  align-items: center;
+}
+.icon {
+  width: 1.8em;
+  text-align: center;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.overlay-content {
+  background: white;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: 90%;
+  border-radius: 8px;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Dölj ålder i normal vy */
+.age {
+  display: none !important;
+}
+body:not(.print-mode) .age {
+  display: none;
+}
+/* Visa ålder i print */
+@media print {
+
+  .day-item {
+    display: inline !important;
+  }
+
+  .age {
+    display: inline !important;
+  }
+
+}
+
+</style>
+
+</head>
+<body>
+
+<h1>Årshjul</h1>
+<button id="printBirthdaysBtn">
+  Skriv ut – endast födelsedagar
+</button>
+
+<section data-month="januari">
+  <h2>Januari</h2>
+  <ul>
+
+  <li>
+  <button
+    class="day-item"
+    data-day="3"
+    data-month="januari"
+    data-type="birthday"
+    data-year="1947"
+    data-name="Lars"
+    type="button"
+  >
+    <span class="day">3</span>
+    <span class="icon">🎂</span>
+    <span class="text">Lars</span>
+<span class="age"></span>
+  </button>
+</li>
+ 
+  </ul>
+</section>
+
+<section data-month="februari">
+  <h2>Februari</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="6"
+        data-month="februari"
+        data-type="birthday"
+        data-year="2009"
+        data-name="Sophie"
+        type="button"
+      >
+        <span class="day">6</span>
+        <span class="icon">🎂</span>
+        <span class="text">Sophie</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+  <section data-month="mars">
+  <h2>Mars</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="10"
+        data-month="mars"
+        data-type="birthday"
+        data-year="2006"
+        data-name="Theodor"
+        type="button"
+      >
+        <span class="day">10</span>
+        <span class="icon">🎂</span>
+        <span class="text">Theodor</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="12"
+        data-month="mars"
+        data-type="birthday"
+        data-year="2013"
+        data-name="Milton"
+        type="button"
+      >
+        <span class="day">12</span>
+        <span class="icon">🎂</span>
+        <span class="text">Milton</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="15"
+        data-month="mars"
+        data-type="birthday"
+        data-year="1986"
+        data-name="Linda"
+        type="button"
+      >
+        <span class="day">15</span>
+        <span class="icon">🎂</span>
+        <span class="text">Linda</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="16"
+        data-month="mars"
+        data-type="birthday"
+        data-year="1989"
+        data-name="Mathilda"
+        type="button"
+      >
+        <span class="day">16</span>
+        <span class="icon">🎂</span>
+        <span class="text">Mathilda</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="17"
+        data-month="mars"
+        data-type="birthday"
+        data-year="1976"
+        data-name="David"
+        type="button"
+      >
+        <span class="day">17</span>
+        <span class="icon">🎂</span>
+        <span class="text">David</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+<section data-month="april">
+  <h2>April</h2>
+  <ul>
+    <li data-type="empty">
+      <span class="day"></span>
+      <span class="icon"></span>
+      <span class="text">Inga händelser ännu</span>
+    </li>
+  </ul>
+</section>
+
+<section data-month="maj">
+  <h2>Maj</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="14"
+        data-month="maj"
+        data-type="birthday"
+        data-year="2013"
+        data-name="Myra"
+        type="button"
+      >
+        <span class="day">14</span>
+        <span class="icon">🎂</span>
+        <span class="text">Myra</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="18"
+        data-month="maj"
+        data-type="birthday"
+        data-year="1981"
+        data-name="Emanuel"
+        type="button"
+      >
+        <span class="day">18</span>
+        <span class="icon">🎂</span>
+        <span class="text">Emanuel</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+<section data-month="juni">
+  <h2>Juni</h2>
+  <ul>
+    <li data-type="empty">
+      <span class="day"></span>
+      <span class="icon"></span>
+      <span class="text">Inga händelser ännu</span>
+    </li>
+  </ul>
+</section>
+
+<section data-month="juli">
+  <h2>Juli</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="30"
+        data-month="juli"
+        data-type="birthday"
+        data-year="2025"
+        data-name="Isabelle"
+        type="button"
+      >
+        <span class="day">30</span>
+        <span class="icon">🎂</span>
+        <span class="text">Isabelle</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+<section data-month="augusti">
+  <h2>Augusti</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="3"
+        data-month="augusti"
+        data-type="birthday"
+        data-year="2007"
+        data-name="Leo"
+        type="button"
+      >
+        <span class="day">3</span>
+        <span class="icon">🎂</span>
+        <span class="text">Leo</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="7"
+        data-month="augusti"
+        data-type="birthday"
+        data-year="1987"
+        data-name="Martin"
+        type="button"
+      >
+        <span class="day">7</span>
+        <span class="icon">🎂</span>
+        <span class="text">Martin</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="30"
+        data-month="augusti"
+        data-type="birthday"
+        data-year="2007"
+        data-name="Tristan"
+        type="button"
+      >
+        <span class="day">30</span>
+        <span class="icon">🎂</span>
+        <span class="text">Tristan</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+<section data-month="september">
+  <h2>September</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="1"
+        data-month="september"
+        data-type="birthday"
+        data-year="2005"
+        data-name="Max"
+        type="button"
+      >
+        <span class="day">1</span>
+        <span class="icon">🎂</span>
+        <span class="text">Max</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="4"
+        data-month="september"
+        data-type="birthday"
+        data-year="1982"
+        data-name="Charlotte"
+        type="button"
+      >
+        <span class="day">4</span>
+        <span class="icon">🎂</span>
+        <span class="text">Charlotte</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="25"
+        data-month="september"
+        data-type="birthday"
+        data-year="1978"
+        data-name="Victor"
+        type="button"
+      >
+        <span class="day">25</span>
+        <span class="icon">🎂</span>
+        <span class="text">Victor</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+<section data-month="oktober">
+  <h2>Oktober</h2>
+  <ul>
+    <li data-type="empty">
+      <span class="day"></span>
+      <span class="icon"></span>
+      <span class="text">Inga händelser ännu</span>
+    </li>
+  </ul>
+</section>
+
+<section data-month="november">
+  <h2>November</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="6"
+        data-month="november"
+        data-type="birthday"
+        data-year="1971"
+        data-name="Nina"
+        type="button"
+      >
+        <span class="day">6</span>
+        <span class="icon">🎂</span>
+        <span class="text">Nina</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="14"
+        data-month="november"
+        data-type="birthday"
+        data-year="1968"
+        data-name="Jennie"
+        type="button"
+      >
+        <span class="day">14</span>
+        <span class="icon">🎂</span>
+        <span class="text">Jennie</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="29"
+        data-month="november"
+        data-type="birthday"
+        data-year="1973"
+        data-name="Calle"
+        type="button"
+      >
+        <span class="day">29</span>
+        <span class="icon">🎂</span>
+        <span class="text">Calle</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+<section data-month="december">
+  <h2>December</h2>
+  <ul>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="5"
+        data-month="december"
+        data-type="birthday"
+        data-year="2019"
+        data-name="Mila"
+        type="button"
+      >
+        <span class="day">5</span>
+        <span class="icon">🎂</span>
+        <span class="text">Mila</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="9"
+        data-month="december"
+        data-type="birthday"
+        data-year="1949"
+        data-name="Ann"
+        type="button"
+      >
+        <span class="day">9</span>
+        <span class="icon">🎂</span>
+        <span class="text">Ann</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+    <li>
+      <button
+        class="day-item"
+        data-day="20"
+        data-month="december"
+        data-type="birthday"
+        data-year="1978"
+        data-name="Frida"
+        type="button"
+      >
+        <span class="day">20</span>
+        <span class="icon">🎂</span>
+        <span class="text">Frida</span>
+<span class="age"></span>
+      </button>
+    </li>
+
+  </ul>
+</section>
+
+<div id="overlay" class="overlay hidden">
+  <div class="overlay-content">
+    <button id="closeOverlay">Stäng ×</button>
+    <h2 id="overlayTitle">Februari</h2>
+    <p id="overlayText">Här ska informationen om februari visas.</p>
+  </div>
+</div>
+
+<script>
+  const overlay = document.getElementById("overlay");
+  const overlayTitle = document.getElementById("overlayTitle");
+  const overlayText = document.getElementById("overlayText");
+  const closeBtn = document.getElementById("closeOverlay");
+
+  document.addEventListener("click", (event) => {
+    const dayButton = event.target.closest(".day-item");
+    if (!dayButton) return;
+
+  const section = dayButton.closest("section");
+
+const month = section.querySelector("h2").textContent;
+const day = dayButton.dataset.day;
+const type = dayButton.dataset.type;
+const year = dayButton.dataset.year;
+const name = dayButton.dataset.name;
+
+  if (day) {
+  overlayTitle.textContent = `${day} ${month}`;
+} else {
+  overlayTitle.textContent = month;
+}
+
+if (type === "birthday" && year && name) {
+  const currentYear = new Date().getFullYear();
+  const age = currentYear - year;
+
+  // Visa ålder i overlay
+  overlayText.textContent = `${name} fyller ${age} år`;
+
+  // Fyll dold print-span
+  const ageSpan = dayButton.querySelector(".age");
+  if (ageSpan) {
+    ageSpan.textContent = " " + age + " år";
+  }
+}
+
+    overlay.classList.remove("hidden");
+    document.getElementById("openSound").play();
+  });
+
+  closeBtn.addEventListener("click", () => {
+    overlay.classList.add("hidden");
+  });
+overlay.addEventListener("click", (event) => {
+  if (event.target === overlay) {
+    event.stopPropagation();
+    overlay.classList.add("hidden");
+  }
+});
+// ===== AUTO AGE FÖR PRINT =====
+window.addEventListener("load", function () {
+
+  const birthdays = document.querySelectorAll('.day-item[data-type="birthday"]');
+
+  birthdays.forEach(function (item) {
+
+    const year = item.dataset.year;
+    if (!year) return;
+
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - year;
+
+    const ageSpan = item.querySelector(".age");
+    if (ageSpan) {
+      ageSpan.textContent = " " + age + " år";
+    }
+
+  });
+
+});
+
+const printBtn = document.getElementById("printBirthdaysBtn");
+
+if (printBtn) {
+  printBtn.addEventListener("click", function () {
+
+    document.body.classList.add("print-birthdays-only");
+
+    setTimeout(function () {
+      window.print();
+      document.body.classList.remove("print-birthdays-only");
+    }, 100);
+
+  });
+}
+
+</script>
+<audio id="openSound" preload="auto">
+  <source src="pop.mp3" type="audio/mpeg">
+</audio>
+
+</body>
+</html>
