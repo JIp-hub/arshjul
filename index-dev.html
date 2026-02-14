@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Årshjul</title>
-  <style>
+<style>
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     line-height: 1.5;
@@ -11,9 +11,24 @@
   }
 
   h1 {
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
   }
 
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 1.25rem;
+  }
+
+  .controls button,
+  .controls select {
+    font: inherit;
+  }
+
+  /* Months list */
   section {
     margin-bottom: 2rem;
     padding-bottom: 1rem;
@@ -32,80 +47,200 @@
   li {
     margin-bottom: 0.3rem;
   }
-.day-item {
-  all: unset;
-  display: grid;
-  grid-template-columns: 2.5em 1.8em auto;
-  align-items: center;
-  width: 100%;
-  cursor: pointer;
-}
-
-.day {
-  min-width: 2em;
-  display: inline-block;
-}
-
-li {
-  align-items: center;
-}
-.icon {
-  width: 1.8em;
-  text-align: center;
-}
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.overlay-content {
-  background: white;
-  padding: 1.5rem;
-  max-width: 420px;
-  width: 90%;
-  border-radius: 8px;
-}
-
-.hidden {
-  display: none;
-}
-
-/* Dölj ålder i normal vy */
-.age {
-  display: none !important;
-}
-body:not(.print-mode) .age {
-  display: none;
-}
-/* Visa ålder i print */
-@media print {
 
   .day-item {
-    display: inline !important;
+    all: unset;
+    display: grid;
+    grid-template-columns: 2.5em 1.8em auto;
+    align-items: center;
+    width: 100%;
+    cursor: pointer;
   }
 
+  .day {
+    min-width: 2em;
+    display: inline-block;
+  }
+
+  .icon {
+    width: 1.8em;
+    text-align: center;
+  }
+
+  /* Overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .overlay-content {
+    background: white;
+    padding: 1.5rem;
+    max-width: 420px;
+    width: 90%;
+    border-radius: 8px;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  /* ===== OVERVIEW MODE (aktiveras senare med JS) ===== */
+  #overview {
+    display: none;
+    margin-top: 1rem;
+  }
+
+  body.overview-mode #months {
+    display: none;
+  }
+
+  body.overview-mode #overview {
+    display: block;
+  }
+
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  @media (max-width: 900px) {
+    .overview-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .overview-month {
+    border: 1px solid #eee;
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .overview-month h2 {
+    margin: 0 0 0.4rem 0;
+    font-size: 1.1rem;
+  }
+
+  .overview-month ul {
+    padding-left: 1.1rem;
+  }
+
+  .overview-month li {
+    margin-bottom: 0.2rem;
+  }
+
+  /* Dölj ålder i normal vy */
   .age {
-    display: inline !important;
+    display: none !important;
   }
 
+  /* ===== PRINT ===== */
+@media print {
+
+  /* Dölj kontroller + overlay + originalvyn (vi skriver ut print-wrappern i stället) */
+  .controls,
+  #overview,
+  #overlay,
+  #months {
+    display: none !important;
+  }
+
+  /* Visa print-wrappern */
+  #printMeta,
+  #printWrap {
+    display: block !important;
+  }
+
+    /* Bas för sidan (större text, men håll 1 sida) */
+  body {
+    font-size: 12.5pt !important;
+    line-height: 1.25 !important;
+    margin: 10mm !important;
+  }
+
+  h1 {
+    font-size: 18pt !important;
+    margin: 0 0 2mm 0 !important;
+  }
+
+  /* Tydlig rad med valt år */
+  #printMeta {
+    font-size: 12.5pt !important;
+    margin: 0 0 6mm 0 !important;
+  }
+
+  /* Två kolumner */
+  #printWrap {
+    display: flex !important;
+    gap: 14mm;
+    align-items: flex-start;
+  }
+
+  .print-col {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  /* Månadskort i print */
+  .print-month {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+    .print-month h2 {
+    margin: 0 0 2.5mm 0 !important;
+    font-size: 14pt !important;
+  }
+
+  .print-month ul {
+    margin: 0 !important;
+    padding-left: 0 !important;
+    list-style: none !important;
+  }
+
+  .print-month li {
+    margin: 0 0 1.75mm 0 !important;
+  }
+
+  hr {
+    display: none !important;
+  }
 }
 
 </style>
-
+  
 </head>
 <body>
 
 <h1>Årshjul</h1>
-<button id="printBirthdaysBtn">
-  Skriv ut – endast födelsedagar
-</button>
+
+<div class="controls">
+  <button id="printBirthdaysBtn" type="button">
+    Skriv ut – endast födelsedagar
+  </button>
+
+  <button id="toggleOverviewBtn" type="button">
+    Visa översikt
+  </button>
+
+  <label class="year-control" for="yearSelect">År:</label>
+  <select id="yearSelect" class="year-control" aria-label="Välj år"></select>
+</div>
+
+<!-- Print-only (byggs av JS precis innan utskrift) -->
+<div id="printMeta" class="print-only"></div>
+<div id="printWrap" class="print-only"></div>
+
+<main id="months">
 
 <section data-month="januari">
+
   <h2>Januari</h2>
   <ul>
 
@@ -575,7 +710,10 @@ body:not(.print-mode) .age {
   </ul>
 </section>
 
+</main>
+
 <div id="overlay" class="overlay hidden">
+
   <div class="overlay-content">
     <button id="closeOverlay">Stäng ×</button>
     <h2 id="overlayTitle">Februari</h2>
@@ -584,94 +722,266 @@ body:not(.print-mode) .age {
 </div>
 
 <script>
-  const overlay = document.getElementById("overlay");
-  const overlayTitle = document.getElementById("overlayTitle");
-  const overlayText = document.getElementById("overlayText");
-  const closeBtn = document.getElementById("closeOverlay");
 
-  document.addEventListener("click", (event) => {
-    const dayButton = event.target.closest(".day-item");
-    if (!dayButton) return;
+/* ===== YEAR STATE ===== */
 
-  const section = dayButton.closest("section");
+const currentYear = new Date().getFullYear();
+let selectedYear = currentYear;
 
-const month = section.querySelector("h2").textContent;
-const day = dayButton.dataset.day;
-const type = dayButton.dataset.type;
-const year = dayButton.dataset.year;
-const name = dayButton.dataset.name;
+/* ===== DOM HOOKS ===== */
 
-  if (day) {
-  overlayTitle.textContent = `${day} ${month}`;
-} else {
-  overlayTitle.textContent = month;
+const overlay = document.getElementById("overlay");
+const overlayTitle = document.getElementById("overlayTitle");
+const overlayText = document.getElementById("overlayText");
+const closeBtn = document.getElementById("closeOverlay");
+const printBtn = document.getElementById("printBirthdaysBtn");
+const openSound = document.getElementById("openSound");
+const yearSelect = document.getElementById("yearSelect");
+
+/* ===== AGE CALCULATION ===== */
+
+function calculateAge(birthYear) {
+  return selectedYear - birthYear;
 }
 
-if (type === "birthday" && year && name) {
-  const currentYear = new Date().getFullYear();
-  const age = currentYear - year;
+/* ===== YEAR SELECT (10 back / 10 forward) ===== */
 
-  // Visa ålder i overlay
-  overlayText.textContent = `${name} fyller ${age} år`;
+function initYearSelect() {
+  if (!yearSelect) return;
 
-  // Fyll dold print-span
-  const ageSpan = dayButton.querySelector(".age");
-  if (ageSpan) {
-    ageSpan.textContent = " " + age + " år";
+  const startYear = currentYear - 10;
+  const endYear = currentYear + 10;
+
+  yearSelect.innerHTML = "";
+
+  for (let y = startYear; y <= endYear; y++) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = String(y);
+    yearSelect.appendChild(opt);
   }
+
+  yearSelect.value = String(currentYear);
+  selectedYear = currentYear;
+
+  yearSelect.addEventListener("change", function () {
+    selectedYear = parseInt(yearSelect.value, 10);
+    updateAllAges();
+  });
 }
 
-    overlay.classList.remove("hidden");
-    document.getElementById("openSound").play();
-  });
+/* ===== UPDATE ALL AGES (PRINT + LIST) ===== */
 
-  closeBtn.addEventListener("click", () => {
-    overlay.classList.add("hidden");
-  });
-overlay.addEventListener("click", (event) => {
-  if (event.target === overlay) {
-    event.stopPropagation();
-    overlay.classList.add("hidden");
-  }
-});
-// ===== AUTO AGE FÖR PRINT =====
-window.addEventListener("load", function () {
-
+function updateAllAges() {
   const birthdays = document.querySelectorAll('.day-item[data-type="birthday"]');
 
   birthdays.forEach(function (item) {
+    const birthYear = item.dataset.year;
+    if (!birthYear) return;
 
-    const year = item.dataset.year;
-    if (!year) return;
-
-    const currentYear = new Date().getFullYear();
-    const age = currentYear - year;
-
+    const age = calculateAge(parseInt(birthYear, 10));
     const ageSpan = item.querySelector(".age");
+
     if (ageSpan) {
       ageSpan.textContent = " " + age + " år";
     }
-
-  });
-
-});
-
-const printBtn = document.getElementById("printBirthdaysBtn");
-
-if (printBtn) {
-  printBtn.addEventListener("click", function () {
-
-    document.body.classList.add("print-birthdays-only");
-
-    setTimeout(function () {
-      window.print();
-      document.body.classList.remove("print-birthdays-only");
-    }, 100);
-
   });
 }
 
+/* ===== OPEN OVERLAY ===== */
+
+document.addEventListener("click", function (event) {
+  const dayButton = event.target.closest(".day-item");
+  if (!dayButton) return;
+
+  const section = dayButton.closest("section");
+  const month = section.querySelector("h2").textContent;
+  const day = dayButton.dataset.day;
+  const type = dayButton.dataset.type;
+  const birthYear = dayButton.dataset.year;
+  const name = dayButton.dataset.name;
+
+  overlayTitle.textContent = day ? `${day} ${month}` : month;
+
+  if (type === "birthday" && birthYear && name) {
+    const age = calculateAge(parseInt(birthYear, 10));
+    overlayText.textContent = `${name} fyller ${age} år`;
+  } else {
+    overlayText.textContent = "";
+  }
+
+  overlay.classList.remove("hidden");
+
+  if (openSound) {
+    openSound.play();
+  }
+});
+
+/* ===== CLOSE OVERLAY ===== */
+
+closeBtn.addEventListener("click", function () {
+  overlay.classList.add("hidden");
+});
+
+overlay.addEventListener("click", function (event) {
+  if (event.target === overlay) {
+    overlay.classList.add("hidden");
+  }
+});
+
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape") {
+    overlay.classList.add("hidden");
+  }
+});
+
+/* ===== BUILD PRINT VIEW (Safari-stabil) ===== */
+
+function buildPrintView() {
+  const printMeta = document.getElementById("printMeta");
+  const printWrap = document.getElementById("printWrap");
+  if (!printMeta || !printWrap) return;
+
+  const onlyBirthdays = document.body.classList.contains("print-birthdays-only");
+
+  // Du vill bara visa år i print
+  printMeta.textContent = `År: ${selectedYear}`;
+
+  printWrap.innerHTML = "";
+
+  // Skapa två riktiga kolumner: Jan–Jun i vänster, Jul–Dec i höger
+  const colLeft = document.createElement("div");
+  colLeft.className = "print-col print-col-left";
+
+  const colRight = document.createElement("div");
+  colRight.className = "print-col print-col-right";
+
+  printWrap.appendChild(colLeft);
+  printWrap.appendChild(colRight);
+
+  // Månadsordning (måste matcha data-month i HTML)
+  const monthOrder = [
+    "januari",
+    "februari",
+    "mars",
+    "april",
+    "maj",
+    "juni",
+    "juli",
+    "augusti",
+    "september",
+    "oktober",
+    "november",
+    "december"
+  ];
+
+  // Plocka alla sektioner och sortera dem i rätt ordning
+  const sections = Array.from(document.querySelectorAll("#months > section"));
+  sections.sort(function (a, b) {
+    const am = (a.dataset.month || "").toLowerCase();
+    const bm = (b.dataset.month || "").toLowerCase();
+    return monthOrder.indexOf(am) - monthOrder.indexOf(bm);
+  });
+
+  sections.forEach(function (section) {
+    const monthKey = (section.dataset.month || "").toLowerCase();
+    const monthIndex = monthOrder.indexOf(monthKey);
+    if (monthIndex === -1) return;
+
+    const monthTitleEl = section.querySelector("h2");
+    if (!monthTitleEl) return;
+
+    const monthTitle = monthTitleEl.textContent.trim();
+
+    const items = section.querySelectorAll(".day-item");
+    const lines = [];
+
+    items.forEach(function (btn) {
+      const type = btn.dataset.type;
+      if (!type) return;
+
+      if (onlyBirthdays && type !== "birthday") return;
+
+      const day = btn.dataset.day ? btn.dataset.day.trim() : "";
+      const iconEl = btn.querySelector(".icon");
+      const textEl = btn.querySelector(".text");
+      const birthYearRaw = btn.dataset.year;
+
+      const icon = iconEl ? iconEl.textContent.trim() : "";
+      const name = textEl ? textEl.textContent.trim() : "";
+
+      if (!day || !name) return;
+
+      let ageText = "";
+      if (type === "birthday" && birthYearRaw) {
+        const birthYear = parseInt(birthYearRaw, 10);
+        if (!Number.isNaN(birthYear)) {
+          const age = calculateAge(birthYear);
+          ageText = ` (${age} år)`;
+        }
+      }
+
+      lines.push(`${day} ${icon} ${name}${ageText}`);
+    });
+
+    // Hoppa över tomma månader i print
+    if (lines.length === 0) return;
+
+    const monthDiv = document.createElement("div");
+    monthDiv.className = "print-month";
+
+    const h2 = document.createElement("h2");
+    h2.textContent = monthTitle;
+
+    const ul = document.createElement("ul");
+
+    lines.forEach(function (line) {
+      const li = document.createElement("li");
+      li.textContent = line;
+      ul.appendChild(li);
+    });
+
+    monthDiv.appendChild(h2);
+    monthDiv.appendChild(ul);
+
+    // Jan–Jun vänster, Jul–Dec höger
+    if (monthIndex <= 5) {
+      colLeft.appendChild(monthDiv);
+    } else {
+      colRight.appendChild(monthDiv);
+    }
+  });
+}
+
+/* Bygg alltid print-vyn när man öppnar utskrift (även via Arkiv-menyn) */
+window.addEventListener("beforeprint", function () {
+  buildPrintView();
+});
+
+/* Rensa filterflaggan efter utskrift */
+window.addEventListener("afterprint", function () {
+  document.body.classList.remove("print-birthdays-only");
+});
+
+/* ===== PRINT BUTTON ===== */
+
+if (printBtn) {
+  printBtn.addEventListener("click", function () {
+    document.body.classList.add("print-birthdays-only");
+    buildPrintView();
+    window.print();
+  });
+}
+
+/* ===== INITIAL LOAD ===== */
+
+window.addEventListener("load", function () {
+  initYearSelect();
+  updateAllAges();
+});
+
 </script>
+
 <audio id="openSound" preload="auto">
   <source src="pop.mp3" type="audio/mpeg">
 </audio>
