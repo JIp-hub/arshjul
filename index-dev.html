@@ -720,8 +720,6 @@
 
 </main>
 
-</main>
-
 <!-- Overview (visas när body har klassen overview-mode) -->
 <div id="overview">
   <div class="overview-grid" id="overviewGrid"></div>
@@ -737,121 +735,322 @@
 </div>
 
 <script>
+const App = {
+  /* =========================
+     0. STATE
+  ========================= */
+   currentYear: new Date().getFullYear(),
+  selectedYear: null,
+  _isPreparingPrint: false,
 
-/* ===== YEAR STATE ===== */
+  monthOrder: [
+  "januari",
+  "februari",
+  "mars",
+  "april",
+  "maj",
+  "juni",
+  "juli",
+  "augusti",
+  "september",
+  "oktober",
+  "november",
+  "december"
+],
 
-const currentYear = new Date().getFullYear();
-let selectedYear = currentYear;
+selectors: {
+  monthSections: "#months > section",
+  birthdayButtons: '.day-item[data-type="birthday"]'
+},
 
-/* ===== DOM HOOKS ===== */
+// FAS 4: datakälla (används i kommande steg)
+events: [
+  { type: "birthday", day: 1, month: "januari", year: 2000, name: "Testperson 9" },
 
-const overlay = document.getElementById("overlay");
-const overlayTitle = document.getElementById("overlayTitle");
-const overlayText = document.getElementById("overlayText");
-const closeBtn = document.getElementById("closeOverlay");
-const printBtn = document.getElementById("printBirthdaysBtn");
-const openSound = document.getElementById("openSound");
-const yearSelect = document.getElementById("yearSelect");
+  { type: "birthday", day: 1, month: "februari", year: 2000, name: "Testperson 19" },
 
-/* Overview hooks */
-const toggleOverviewBtn = document.getElementById("toggleOverviewBtn");
-const overviewGrid = document.getElementById("overviewGrid");
+  { type: "birthday", day: 1, month: "mars", year: 2000, name: "Testperson 20" },
+  { type: "birthday", day: 1, month: "mars", year: 2000, name: "Testperson 16" },
+  { type: "birthday", day: 1, month: "mars", year: 2000, name: "Testperson 11" },
+  { type: "birthday", day: 1, month: "mars", year: 2000, name: "Testperson 13" },
+  { type: "birthday", day: 1, month: "mars", year: 2000, name: "Testperson 4" },
 
-/* ===== AGE CALCULATION ===== */
+  { type: "birthday", day: 1, month: "maj", year: 2000, name: "Testperson 17" },
+  { type: "birthday", day: 1, month: "maj", year: 2000, name: "Testperson 5" },
 
-function calculateAge(birthYear) {
-  return selectedYear - birthYear;
-}
+  { type: "birthday", day: 1, month: "juli", year: 2000, name: "Testperson 7" },
 
-/* ===== YEAR SELECT (10 back / 10 forward) ===== */
+  { type: "birthday", day: 1, month: "augusti", year: 2000, name: "Testperson 10" },
+  { type: "birthday", day: 1, month: "augusti", year: 2000, name: "Testperson 12" },
+  { type: "birthday", day: 1, month: "augusti", year: 2000, name: "Testperson 21" },
 
-function initYearSelect() {
-  if (!yearSelect) return;
+  { type: "birthday", day: 1, month: "september", year: 2000, name: "Testperson 14" },
+  { type: "birthday", day: 1, month: "september", year: 2000, name: "Testperson 3" },
+  { type: "birthday", day: 1, month: "september", year: 2000, name: "Testperson 22" },
 
-  const startYear = currentYear - 10;
-  const endYear = currentYear + 10;
+  { type: "birthday", day: 1, month: "november", year: 2000, name: "Testperson 18" },
+  { type: "birthday", day: 1, month: "november", year: 2000, name: "Testperson 8" },
+  { type: "birthday", day: 1, month: "november", year: 2000, name: "Testperson 2" },
 
-  yearSelect.innerHTML = "";
+  { type: "birthday", day: 1, month: "december", year: 2000, name: "Testperson 15" },
+  { type: "birthday", day: 1, month: "december", year: 2000, name: "Testperson 1" },
+  { type: "birthday", day: 1, month: "december", year: 2000, name: "Testperson 6" }
+],
 
-  for (let y = startYear; y <= endYear; y++) {
-    const opt = document.createElement("option");
-    opt.value = String(y);
-    opt.textContent = String(y);
-    yearSelect.appendChild(opt);
-  }
+  /* =========================
+     1. DOM REFERENCES
+  ========================= */
+  dom: {
+    overlay: null,
+    overlayTitle: null,
+    overlayText: null,
+    closeBtn: null,
+    printBtn: null,
+    openSound: null,
+    yearSelect: null,
+    toggleOverviewBtn: null,
+    overviewGrid: null,
+    printMeta: null,
+    printWrap: null
+  },
 
-  yearSelect.value = String(currentYear);
-  selectedYear = currentYear;
+  /* =========================
+     2. FUNCTIONS
+  ========================= */
+  cacheDom() {
+    this.dom.overlay = document.getElementById("overlay");
+    this.dom.overlayTitle = document.getElementById("overlayTitle");
+    this.dom.overlayText = document.getElementById("overlayText");
+    this.dom.closeBtn = document.getElementById("closeOverlay");
+    this.dom.printBtn = document.getElementById("printBirthdaysBtn");
+    this.dom.openSound = document.getElementById("openSound");
+    this.dom.yearSelect = document.getElementById("yearSelect");
+    this.dom.toggleOverviewBtn = document.getElementById("toggleOverviewBtn");
+    this.dom.overviewGrid = document.getElementById("overviewGrid");
+    this.dom.printMeta = document.getElementById("printMeta");
+    this.dom.printWrap = document.getElementById("printWrap");
 
-  yearSelect.addEventListener("change", function () {
-    selectedYear = parseInt(yearSelect.value, 10);
-    updateAllAges();
-  });
-}
-
-/* ===== UPDATE ALL AGES (PRINT + LIST + OVERVIEW) ===== */
-
-function updateAllAges() {
-  const birthdays = document.querySelectorAll('.day-item[data-type="birthday"]');
-
-  birthdays.forEach(function (item) {
-    const birthYear = item.dataset.year;
-    if (!birthYear) return;
-
-    const age = calculateAge(parseInt(birthYear, 10));
-    const ageSpan = item.querySelector(".age");
-
-    if (ageSpan) {
-      ageSpan.textContent = " " + age + " år";
+       // Ladda ljud endast när vi inte kör via file:// (för att slippa Safari-konsolfel)
+    if (this.dom.openSound) {
+      const source = this.dom.openSound.querySelector("source");
+      if (source) {
+        if (location.protocol === "file:") {
+          source.removeAttribute("src");
+        } else {
+          const ds = source.getAttribute("data-src");
+          if (ds) source.setAttribute("src", ds);
+        }
+      }
+      this.dom.openSound.load();
     }
+},
+  
+  calculateAge(birthYear) {
+    const y = Number.isFinite(this.selectedYear) ? this.selectedYear : this.currentYear;
+    return y - birthYear;
+  },
+
+getIconForType(type, fallbackIcon = "") {
+  const t = String(type || "").toLowerCase();
+
+  const iconMap = {
+    birthday: "🎂",
+    event: "🗓️",
+    reminder: "⏰",
+    holiday: "🎉",
+    note: "⭐"
+  };
+
+  return iconMap[t] || fallbackIcon || "";
+},
+
+createDayItemButton(ev) {
+  const btn = document.createElement("button");
+  btn.className = "day-item";
+  btn.type = "button";
+
+  // Data-attribut (matchar din HTML)
+  btn.dataset.day = String(ev.day);
+  btn.dataset.month = String(ev.month);
+  btn.dataset.type = String(ev.type);
+  if (ev.year != null) btn.dataset.year = String(ev.year);
+  if (ev.name != null) btn.dataset.name = String(ev.name);
+  if (ev.text != null) btn.dataset.text = String(ev.text);
+
+  // Innehåll (matchar din HTML-struktur)
+  const daySpan = document.createElement("span");
+  daySpan.className = "day";
+  daySpan.textContent = String(ev.day);
+
+  const iconSpan = document.createElement("span");
+  iconSpan.className = "icon";
+  iconSpan.textContent = this.getIconForType(ev.type, ev.icon);
+
+  const textSpan = document.createElement("span");
+  textSpan.className = "text";
+  textSpan.textContent = ev.name ? String(ev.name) : (ev.text ? String(ev.text) : "");
+
+  const ageSpan = document.createElement("span");
+  ageSpan.className = "age";
+  ageSpan.textContent = ""; // fylls av updateAllAges()
+
+  btn.appendChild(daySpan);
+  btn.appendChild(iconSpan);
+  btn.appendChild(textSpan);
+  btn.appendChild(ageSpan);
+
+  return btn;
+},
+
+  initYearSelect() {
+    const yearSelect = this.dom.yearSelect;
+    if (!yearSelect) return;
+
+    const startYear = this.currentYear - 10;
+    const endYear = this.currentYear + 10;
+
+    yearSelect.innerHTML = "";
+
+    for (let y = startYear; y <= endYear; y++) {
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = String(y);
+      yearSelect.appendChild(opt);
+    }
+
+    yearSelect.value = String(this.currentYear);
+    this.selectedYear = this.currentYear;
+
+   yearSelect.addEventListener("change", () => {
+  this.selectedYear = parseInt(yearSelect.value, 10);
+  this.updateAllAges();
+
+  if (document.body.classList.contains("overview-mode")) {
+    this.buildOverview();
+  }
+});
+
+// Förhindra att scrollhjulet råkar ändra år
+yearSelect.addEventListener(
+  "wheel",
+  (event) => {
+    event.preventDefault();
+  },
+  { passive: false }
+);
+ 
+  },
+
+ updateAllAges() {
+  const buttons = document.querySelectorAll(this.selectors.birthdayButtons);
+
+  buttons.forEach((btn) => {
+    const birthYearRaw = btn.dataset.year;
+    if (!birthYearRaw) return;
+
+    const birthYear = parseInt(birthYearRaw, 10);
+    if (Number.isNaN(birthYear)) return;
+
+    const ageSpan = btn.querySelector(".age");
+    if (!ageSpan) return;
+
+    const age = this.calculateAge(birthYear);
+    ageSpan.textContent = " " + age + " år";
   });
-}
+},
 
-/* ===== OVERVIEW ===== */
+  setOverviewButtonLabel() {
+    const btn = this.dom.toggleOverviewBtn;
+    if (!btn) return;
 
-function setOverviewButtonLabel() {
-  if (!toggleOverviewBtn) return;
+    const isOverview = document.body.classList.contains("overview-mode");
+    btn.textContent = isOverview ? "Tillbaka till lista" : "Visa översikt";
+  },
 
-  const isOverview = document.body.classList.contains("overview-mode");
-  toggleOverviewBtn.textContent = isOverview ? "Tillbaka till lista" : "Visa översikt";
-}
+renderMonthsFromEvents() {
+  const monthsRoot = document.getElementById("months");
+  if (!monthsRoot) return;
 
-function buildOverview() {
+   const byMonth = new Map();
+  this.monthOrder.forEach((m) => byMonth.set(m, []));
+
+  this.events.forEach((ev) => {
+    if (!ev || !ev.month) return;
+    const monthKey = String(ev.month).toLowerCase().trim();
+    if (!byMonth.has(monthKey)) return;
+    byMonth.get(monthKey).push(ev);
+  });
+
+  const sections = Array.from(document.querySelectorAll(this.selectors.monthSections));
+
+  sections.forEach((section) => {
+    const monthKey = (section.dataset.month || "").toLowerCase().trim();
+    const ul = section.querySelector("ul");
+    if (!ul) return;
+
+    ul.innerHTML = "";
+
+    const monthEvents = byMonth.get(monthKey) || [];
+    monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
+
+    if (monthEvents.length === 0) {
+      const li = document.createElement("li");
+      li.dataset.type = "empty";
+
+      const day = document.createElement("span");
+      day.className = "day";
+      day.textContent = "";
+
+      const icon = document.createElement("span");
+      icon.className = "icon";
+      icon.textContent = "";
+
+      const text = document.createElement("span");
+      text.className = "text";
+      text.textContent = "Inga händelser ännu";
+
+      li.appendChild(day);
+      li.appendChild(icon);
+      li.appendChild(text);
+
+      ul.appendChild(li);
+      return;
+    }
+
+    monthEvents.forEach((ev) => {
+      const li = document.createElement("li");
+      const btn = this.createDayItemButton(ev);
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+  });
+},
+
+  buildOverview() {
+  const overviewGrid = this.dom.overviewGrid;
   if (!overviewGrid) return;
 
   overviewGrid.innerHTML = "";
 
-  const monthOrder = [
-    "januari",
-    "februari",
-    "mars",
-    "april",
-    "maj",
-    "juni",
-    "juli",
-    "augusti",
-    "september",
-    "oktober",
-    "november",
-    "december"
-  ];
+  // Grupp: monthKey -> events[]
+  const byMonth = new Map();
+  this.monthOrder.forEach((m) => byMonth.set(m, []));
 
-  const sections = Array.from(document.querySelectorAll("#months > section"));
-
-  sections.sort(function (a, b) {
-    const am = (a.dataset.month || "").toLowerCase();
-    const bm = (b.dataset.month || "").toLowerCase();
-    return monthOrder.indexOf(am) - monthOrder.indexOf(bm);
+  this.events.forEach((ev) => {
+    if (!ev || !ev.month) return;
+    const monthKey = String(ev.month).toLowerCase().trim();
+    if (!byMonth.has(monthKey)) return;
+    byMonth.get(monthKey).push(ev);
   });
 
-  sections.forEach(function (section) {
-    const monthTitleEl = section.querySelector("h2");
-    if (!monthTitleEl) return;
+  // Bygg månader i rätt ordning
+  this.monthOrder.forEach((monthKey) => {
+    const monthEvents = byMonth.get(monthKey) || [];
+    if (monthEvents.length === 0) return;
 
-    const monthTitle = monthTitleEl.textContent.trim();
+    monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
 
-    const items = section.querySelectorAll(".day-item");
-    if (!items || items.length === 0) return;
+    const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
 
     const monthDiv = document.createElement("div");
     monthDiv.className = "overview-month";
@@ -861,118 +1060,32 @@ function buildOverview() {
 
     const ul = document.createElement("ul");
 
-    let hasAny = false;
-
-    items.forEach(function (btn) {
-      const type = btn.dataset.type;
-      if (!type) return;
-
-      const day = btn.dataset.day ? btn.dataset.day.trim() : "";
-      const name = btn.dataset.name ? btn.dataset.name.trim() : "";
-      if (!day || !name) return;
-
+    monthEvents.forEach((ev) => {
       const li = document.createElement("li");
-
-      // Klona knappen så overlay-funktionen fungerar även i översikten
-      const clone = btn.cloneNode(true);
-
-      // Ålder fylls på av updateAllAges()
-      const ageSpan = clone.querySelector(".age");
-      if (ageSpan) ageSpan.textContent = "";
-
-      li.appendChild(clone);
+      const btn = this.createDayItemButton(ev);
+      li.appendChild(btn);
       ul.appendChild(li);
-      hasAny = true;
     });
 
-    if (!hasAny) return;
+    if (ul.children.length === 0) return;
 
     monthDiv.appendChild(h2);
     monthDiv.appendChild(ul);
     overviewGrid.appendChild(monthDiv);
   });
 
-  // Fyll ålder även i översikten
-  updateAllAges();
-}
+  this.updateAllAges();
+},
 
-if (toggleOverviewBtn) {
-  toggleOverviewBtn.addEventListener("click", function () {
-    const willShow = !document.body.classList.contains("overview-mode");
-
-    if (willShow) {
-      document.body.classList.add("overview-mode");
-      buildOverview();
-    } else {
-      document.body.classList.remove("overview-mode");
-    }
-
-    setOverviewButtonLabel();
-  });
-}
-
-/* ===== OPEN OVERLAY ===== */
-
-document.addEventListener("click", function (event) {
-  const dayButton = event.target.closest(".day-item");
-  if (!dayButton) return;
-
-  const section = dayButton.closest("section");
-  const month = section.querySelector("h2").textContent;
-  const day = dayButton.dataset.day;
-  const type = dayButton.dataset.type;
-  const birthYear = dayButton.dataset.year;
-  const name = dayButton.dataset.name;
-
-  overlayTitle.textContent = day ? `${day} ${month}` : month;
-
-  if (type === "birthday" && birthYear && name) {
-    const age = calculateAge(parseInt(birthYear, 10));
-    overlayText.textContent = `${name} fyller ${age} år`;
-  } else {
-    overlayText.textContent = "";
-  }
-
-  overlay.classList.remove("hidden");
-
-  if (openSound) {
-    openSound.play();
-  }
-});
-
-/* ===== CLOSE OVERLAY ===== */
-
-closeBtn.addEventListener("click", function () {
-  overlay.classList.add("hidden");
-});
-
-overlay.addEventListener("click", function (event) {
-  if (event.target === overlay) {
-    overlay.classList.add("hidden");
-  }
-});
-
-document.addEventListener("keydown", function (event) {
-  if (event.key === "Escape") {
-    overlay.classList.add("hidden");
-  }
-});
-
-/* ===== BUILD PRINT VIEW (Safari-stabil) ===== */
-
-function buildPrintView() {
-  const printMeta = document.getElementById("printMeta");
-  const printWrap = document.getElementById("printWrap");
+  buildPrintView() {
+  const { printMeta, printWrap } = this.dom;
   if (!printMeta || !printWrap) return;
 
-  const onlyBirthdays = document.body.classList.contains("print-birthdays-only");
+ const onlyBirthdays = true;
 
-  // Du vill bara visa år i print
-  printMeta.textContent = `År: ${selectedYear}`;
-
+  printMeta.textContent = `År: ${this.selectedYear}`;
   printWrap.innerHTML = "";
 
-  // Skapa två riktiga kolumner: Jan–Jun i vänster, Jul–Dec i höger
   const colLeft = document.createElement("div");
   colLeft.className = "print-col print-col-left";
 
@@ -982,73 +1095,30 @@ function buildPrintView() {
   printWrap.appendChild(colLeft);
   printWrap.appendChild(colRight);
 
-  // Månadsordning (måste matcha data-month i HTML)
-  const monthOrder = [
-    "januari",
-    "februari",
-    "mars",
-    "april",
-    "maj",
-    "juni",
-    "juli",
-    "augusti",
-    "september",
-    "oktober",
-    "november",
-    "december"
-  ];
+  // Grupp: monthKey -> events[]
+  const byMonth = new Map();
+  this.monthOrder.forEach((m) => byMonth.set(m, []));
 
-  // Plocka alla sektioner och sortera dem i rätt ordning
-  const sections = Array.from(document.querySelectorAll("#months > section"));
-  sections.sort(function (a, b) {
-    const am = (a.dataset.month || "").toLowerCase();
-    const bm = (b.dataset.month || "").toLowerCase();
-    return monthOrder.indexOf(am) - monthOrder.indexOf(bm);
+  this.events.forEach((ev) => {
+    if (!ev || !ev.month) return;
+    const monthKey = String(ev.month).toLowerCase().trim();
+    if (!byMonth.has(monthKey)) return;
+
+    const evType = String(ev.type || "").toLowerCase();
+    if (onlyBirthdays && evType !== "birthday") return;
+
+    byMonth.get(monthKey).push(ev);
   });
 
-  sections.forEach(function (section) {
-    const monthKey = (section.dataset.month || "").toLowerCase();
-    const monthIndex = monthOrder.indexOf(monthKey);
-    if (monthIndex === -1) return;
+  // Bygg print-månader i rätt ordning
+  this.monthOrder.forEach((monthKey, idx) => {
+    const monthEvents = byMonth.get(monthKey) || [];
+    if (monthEvents.length === 0) return;
 
-    const monthTitleEl = section.querySelector("h2");
-    if (!monthTitleEl) return;
+    // Sortera på dag
+    monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
 
-    const monthTitle = monthTitleEl.textContent.trim();
-
-    const items = section.querySelectorAll(".day-item");
-    const lines = [];
-
-    items.forEach(function (btn) {
-      const type = btn.dataset.type;
-      if (!type) return;
-
-      if (onlyBirthdays && type !== "birthday") return;
-
-      const day = btn.dataset.day ? btn.dataset.day.trim() : "";
-      const iconEl = btn.querySelector(".icon");
-      const textEl = btn.querySelector(".text");
-      const birthYearRaw = btn.dataset.year;
-
-      const icon = iconEl ? iconEl.textContent.trim() : "";
-      const name = textEl ? textEl.textContent.trim() : "";
-
-      if (!day || !name) return;
-
-      let ageText = "";
-      if (type === "birthday" && birthYearRaw) {
-        const birthYear = parseInt(birthYearRaw, 10);
-        if (!Number.isNaN(birthYear)) {
-          const age = calculateAge(birthYear);
-          ageText = ` (${age} år)`;
-        }
-      }
-
-      lines.push(`${day} ${icon} ${name}${ageText}`);
-    });
-
-    // Hoppa över tomma månader i print
-    if (lines.length === 0) return;
+    const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
 
     const monthDiv = document.createElement("div");
     monthDiv.className = "print-month";
@@ -1058,55 +1128,234 @@ function buildPrintView() {
 
     const ul = document.createElement("ul");
 
-    lines.forEach(function (line) {
+      monthEvents.forEach((ev) => {
+      const day = ev.day != null ? String(ev.day) : "";
+      const name = ev.name != null ? String(ev.name) : "";
+      if (!day || !name) return;
+
+           const evType = String(ev.type || "").trim().toLowerCase();
+      const icon = evType === "birthday" ? "🎂" : "";
+
+      let ageText = "";
+      if (evType === "birthday" && ev.year != null) {
+        const birthYear = parseInt(String(ev.year).trim(), 10);
+        if (!Number.isNaN(birthYear)) {
+          const age = this.calculateAge(birthYear);
+          ageText = ` (${age} år)`;
+        }
+      }
+
       const li = document.createElement("li");
-      li.textContent = line;
+      li.textContent = `${day} ${icon} ${name}${ageText}`;
       ul.appendChild(li);
     });
+
+    if (ul.children.length === 0) return;
 
     monthDiv.appendChild(h2);
     monthDiv.appendChild(ul);
 
     // Jan–Jun vänster, Jul–Dec höger
-    if (monthIndex <= 5) {
+    if (idx <= 5) {
       colLeft.appendChild(monthDiv);
     } else {
       colRight.appendChild(monthDiv);
     }
   });
-}
+},
 
-/* Bygg alltid print-vyn när man öppnar utskrift (även via Arkiv-menyn) */
-window.addEventListener("beforeprint", function () {
-  buildPrintView();
-});
+printBirthdaysOnly() {
+  this.handleBeforePrint();
+  window.print();
+},
 
-/* Rensa filterflaggan efter utskrift */
-window.addEventListener("afterprint", function () {
-  document.body.classList.remove("print-birthdays-only");
-});
+resetPrintFlags() {
+  if (document.body.classList.contains("print-birthdays-only")) {
+    document.body.classList.remove("print-birthdays-only");
+  }
+  this._isPreparingPrint = false;
+  this.resetYearToCurrent();
+},
 
-/* ===== PRINT BUTTON ===== */
+handleBeforePrint() {
+  if (this._isPreparingPrint) return;
+  this._isPreparingPrint = true;
 
-if (printBtn) {
-  printBtn.addEventListener("click", function () {
-    document.body.classList.add("print-birthdays-only");
-    buildPrintView();
-    window.print();
+  document.body.classList.add("print-birthdays-only");
+  this.buildPrintView();
+},
+
+handleDocumentClick(event) {
+  const dayButton = event.target.closest(".day-item");
+  if (!dayButton) return;
+
+  const hasDay = !!(dayButton.dataset && dayButton.dataset.day);
+  const hasMonth = !!(dayButton.dataset && dayButton.dataset.month);
+  if (!hasDay || !hasMonth) return;
+
+  this.openOverlayFromButton(dayButton);
+},
+
+handleKeydown(event) {
+  const { overlay } = this.dom;
+  if (event.key === "Escape" && overlay) {
+    this.closeOverlay();
+  }
+},
+
+handleOverlayClick(event) {
+  const { overlay } = this.dom;
+  if (overlay && event.target === overlay) {
+    this.closeOverlay();
+  }
+},
+
+  toggleOverview() {
+  const willShow = !document.body.classList.contains("overview-mode");
+
+  if (willShow) {
+    document.body.classList.add("overview-mode");
+    this.buildOverview();
+  } else {
+    document.body.classList.remove("overview-mode");
+    this.resetYearToCurrent();
+  }
+
+  this.setOverviewButtonLabel();
+},
+
+resetYearToCurrent() {
+  const { yearSelect } = this.dom;
+  if (!yearSelect) return;
+
+  yearSelect.value = String(this.currentYear);
+  this.selectedYear = this.currentYear;
+  this.updateAllAges();
+
+  if (document.body.classList.contains("overview-mode")) {
+    this.buildOverview();
+  }
+},
+
+  openOverlayFromButton(dayButton) {
+  const { overlay, overlayTitle, overlayText, openSound } = this.dom;
+  if (!overlay || !overlayTitle || !overlayText) return;
+
+  const monthKey = (dayButton.dataset.month || "").trim().toLowerCase();
+  const month = monthKey ? monthKey.charAt(0).toUpperCase() + monthKey.slice(1) : "";
+
+  const day = (dayButton.dataset.day || "").trim();
+  const type = (dayButton.dataset.type || "").trim().toLowerCase();
+  const birthYearRaw = dayButton.dataset.year;
+  const name = (dayButton.dataset.name || "").trim();
+  const text = (dayButton.dataset.text || "").trim();
+
+  overlayTitle.textContent = day && month ? `${day} ${month}` : (month || "");
+
+  if (type === "birthday" && birthYearRaw && name) {
+    const birthYear = parseInt(birthYearRaw, 10);
+    if (!Number.isNaN(birthYear)) {
+      const age = this.calculateAge(birthYear);
+      overlayText.textContent = `${name} fyller ${age} år`;
+    } else {
+      overlayText.textContent = name;
+    }
+  } else {
+    // För andra typer: visa text om den finns, annars namn, annars tomt
+    overlayText.textContent = text || name || "";
+  }
+
+  overlay.classList.remove("hidden");
+
+    if (openSound) {
+    const p = openSound.play();
+    if (p && typeof p.catch === "function") {
+      p.catch(() => {});
+    }
+  }
+},
+
+    closeOverlay() {
+    const { overlay } = this.dom;
+    if (!overlay) return;
+    overlay.classList.add("hidden");
+
+    if (
+      !document.body.classList.contains("overview-mode") &&
+      this.selectedYear !== this.currentYear
+    ) {
+      this.resetYearToCurrent();
+    }
+  },
+
+  /* =========================
+     3. EVENT LISTENERS + INIT
+  ========================= */
+  bindEvents() {
+  const { toggleOverviewBtn, closeBtn, overlay, printBtn } = this.dom;
+
+  if (toggleOverviewBtn) {
+    toggleOverviewBtn.addEventListener("click", () => {
+      this.toggleOverview();
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    this.handleDocumentClick(event);
   });
+
+  if (closeBtn && overlay) {
+    closeBtn.addEventListener("click", () => {
+      this.closeOverlay();
+    });
+  }
+
+  if (overlay) {
+    overlay.addEventListener("click", (event) => {
+      this.handleOverlayClick(event);
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    this.handleKeydown(event);
+  });
+
+  window.addEventListener("beforeprint", () => {
+    this.handleBeforePrint();
+  });
+
+  window.addEventListener("afterprint", () => {
+    this.resetPrintFlags();
+  });
+
+  if (printBtn) {
+    printBtn.addEventListener("click", () => {
+      this.printBirthdaysOnly();
+    });
+  }
+},
+
+ init() {
+  this.selectedYear = this.currentYear;
+  this.cacheDom();
+
+  this.renderMonthsFromEvents();
+
+  this.bindEvents();
+  this.initYearSelect();
+  this.updateAllAges();
+  this.setOverviewButtonLabel();
 }
 
-/* ===== INITIAL LOAD ===== */
+};
 
-window.addEventListener("load", function () {
-  initYearSelect();
-  updateAllAges();
+window.addEventListener("load", () => {
+  App.init();
 });
-
 </script>
 
-<audio id="openSound" preload="auto">
-  <source src="pop.mp3" type="audio/mpeg">
+<audio id="openSound" preload="none">
+  <source data-src="./pop.mp3" type="audio/mpeg">
 </audio>
 
 </body>
