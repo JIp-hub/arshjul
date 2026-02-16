@@ -232,6 +232,7 @@
   <button id="printBirthdaysBtn" type="button">
     Skriv ut – endast födelsedagar
   </button>
+  <button id="copyBirthdaysBtn" type="button">Kopiera födelsedagslista</button>
 
   <button id="toggleOverviewBtn" type="button">
     Visa översikt
@@ -739,63 +740,62 @@ const App = {
   /* =========================
      0. STATE
   ========================= */
-   currentYear: new Date().getFullYear(),
+  currentYear: new Date().getFullYear(),
   selectedYear: null,
   _isPreparingPrint: false,
 
   monthOrder: [
-  "januari",
-  "februari",
-  "mars",
-  "april",
-  "maj",
-  "juni",
-  "juli",
-  "augusti",
-  "september",
-  "oktober",
-  "november",
-  "december"
-],
+    "januari",
+    "februari",
+    "mars",
+    "april",
+    "maj",
+    "juni",
+    "juli",
+    "augusti",
+    "september",
+    "oktober",
+    "november",
+    "december"
+  ],
 
-selectors: {
-  monthSections: "#months > section",
-  birthdayButtons: '.day-item[data-type="birthday"]'
-},
+  selectors: {
+    monthSections: "#months > section",
+    birthdayButtons: '.day-item[data-type="birthday"]'
+  },
 
-// FAS 4: datakälla (används i kommande steg)
-events: [
-  { type: "birthday", day: 3, month: "januari", year: 1947, name: "Lars" },
+  // FAS 4: datakälla
+  events: [
+    { type: "birthday", day: 3, month: "januari", year: 1947, name: "Lars" },
+    { type: "birthday", day: 6, month: "februari", year: 2009, name: "Sophie" },
 
-  { type: "birthday", day: 6, month: "februari", year: 2009, name: "Sophie" },
+    { type: "birthday", day: 10, month: "mars", year: 2006, name: "Theodor" },
+    { type: "birthday", day: 12, month: "mars", year: 2013, name: "Milton" },
+    { type: "birthday", day: 15, month: "mars", year: 1986, name: "Linda" },
+    { type: "birthday", day: 16, month: "mars", year: 1989, name: "Mathilda" },
+    { type: "birthday", day: 17, month: "mars", year: 1976, name: "David" },
 
-  { type: "birthday", day: 10, month: "mars", year: 2006, name: "Theodor" },
-  { type: "birthday", day: 12, month: "mars", year: 2013, name: "Milton" },
-  { type: "birthday", day: 15, month: "mars", year: 1986, name: "Linda" },
-  { type: "birthday", day: 16, month: "mars", year: 1989, name: "Mathilda" },
-  { type: "birthday", day: 17, month: "mars", year: 1976, name: "David" },
+    { type: "birthday", day: 14, month: "maj", year: 2013, name: "Myra" },
+    { type: "birthday", day: 18, month: "maj", year: 1981, name: "Emanuel" },
 
-  { type: "birthday", day: 14, month: "maj", year: 2013, name: "Myra" },
-  { type: "birthday", day: 18, month: "maj", year: 1981, name: "Emanuel" },
+    { type: "birthday", day: 30, month: "juli", year: 2025, name: "Isabelle" },
 
-  { type: "birthday", day: 30, month: "juli", year: 2025, name: "Isabelle" },
+    { type: "birthday", day: 3, month: "augusti", year: 2007, name: "Leo" },
+    { type: "birthday", day: 7, month: "augusti", year: 1987, name: "Martin" },
+    { type: "birthday", day: 30, month: "augusti", year: 2007, name: "Tristan" },
 
-  { type: "birthday", day: 3, month: "augusti", year: 2007, name: "Leo" },
-  { type: "birthday", day: 7, month: "augusti", year: 1987, name: "Martin" },
-  { type: "birthday", day: 30, month: "augusti", year: 2007, name: "Tristan" },
+    { type: "birthday", day: 1, month: "september", year: 2005, name: "Max" },
+    { type: "birthday", day: 4, month: "september", year: 1982, name: "Charlotte" },
+    { type: "birthday", day: 25, month: "september", year: 1978, name: "Victor" },
 
-  { type: "birthday", day: 1, month: "september", year: 2005, name: "Max" },
-  { type: "birthday", day: 4, month: "september", year: 1982, name: "Charlotte" },
-  { type: "birthday", day: 25, month: "september", year: 1978, name: "Victor" },
+    { type: "birthday", day: 6, month: "november", year: 1971, name: "Nina" },
+    { type: "birthday", day: 14, month: "november", year: 1968, name: "Jennie" },
+    { type: "birthday", day: 29, month: "november", year: 1973, name: "Calle" },
 
-  { type: "birthday", day: 6, month: "november", year: 1971, name: "Nina" },
-  { type: "birthday", day: 14, month: "november", year: 1968, name: "Jennie" },
-  { type: "birthday", day: 29, month: "november", year: 1973, name: "Calle" },
-
-  { type: "birthday", day: 5, month: "december", year: 2019, name: "Mila" },
-  { type: "birthday", day: 9, month: "december", year: 1949, name: "Ann" },
-  { type: "birthday", day: 20, month: "december", year: 1978, name: "Frida" }
-],
+    { type: "birthday", day: 5, month: "december", year: 2019, name: "Mila" },
+    { type: "birthday", day: 9, month: "december", year: 1949, name: "Ann" },
+    { type: "birthday", day: 20, month: "december", year: 1978, name: "Frida" }
+  ],
 
   /* =========================
      1. DOM REFERENCES
@@ -806,6 +806,7 @@ events: [
     overlayText: null,
     closeBtn: null,
     printBtn: null,
+    copyBtn: null,
     openSound: null,
     yearSelect: null,
     toggleOverviewBtn: null,
@@ -823,6 +824,7 @@ events: [
     this.dom.overlayText = document.getElementById("overlayText");
     this.dom.closeBtn = document.getElementById("closeOverlay");
     this.dom.printBtn = document.getElementById("printBirthdaysBtn");
+    this.dom.copyBtn = document.getElementById("copyBirthdaysBtn");
     this.dom.openSound = document.getElementById("openSound");
     this.dom.yearSelect = document.getElementById("yearSelect");
     this.dom.toggleOverviewBtn = document.getElementById("toggleOverviewBtn");
@@ -830,7 +832,7 @@ events: [
     this.dom.printMeta = document.getElementById("printMeta");
     this.dom.printWrap = document.getElementById("printWrap");
 
-       // Ladda ljud endast när vi inte kör via file:// (för att slippa Safari-konsolfel)
+    // Ljud: undvik fel i file://
     if (this.dom.openSound) {
       const source = this.dom.openSound.querySelector("source");
       if (source) {
@@ -843,64 +845,60 @@ events: [
       }
       this.dom.openSound.load();
     }
-},
-  
+  },
+
   calculateAge(birthYear) {
     const y = Number.isFinite(this.selectedYear) ? this.selectedYear : this.currentYear;
     return y - birthYear;
   },
 
-getIconForType(type, fallbackIcon = "") {
-  const t = String(type || "").toLowerCase();
+  getIconForType(type, fallbackIcon = "") {
+    const t = String(type || "").toLowerCase();
+    const iconMap = {
+      birthday: "🎂",
+      event: "🗓️",
+      reminder: "⏰",
+      holiday: "🎉",
+      note: "⭐"
+    };
+    return iconMap[t] || fallbackIcon || "";
+  },
 
-  const iconMap = {
-    birthday: "🎂",
-    event: "🗓️",
-    reminder: "⏰",
-    holiday: "🎉",
-    note: "⭐"
-  };
+  createDayItemButton(ev) {
+    const btn = document.createElement("button");
+    btn.className = "day-item";
+    btn.type = "button";
 
-  return iconMap[t] || fallbackIcon || "";
-},
+    btn.dataset.day = String(ev.day);
+    btn.dataset.month = String(ev.month);
+    btn.dataset.type = String(ev.type);
+    if (ev.year != null) btn.dataset.year = String(ev.year);
+    if (ev.name != null) btn.dataset.name = String(ev.name);
+    if (ev.text != null) btn.dataset.text = String(ev.text);
 
-createDayItemButton(ev) {
-  const btn = document.createElement("button");
-  btn.className = "day-item";
-  btn.type = "button";
+    const daySpan = document.createElement("span");
+    daySpan.className = "day";
+    daySpan.textContent = String(ev.day);
 
-  // Data-attribut (matchar din HTML)
-  btn.dataset.day = String(ev.day);
-  btn.dataset.month = String(ev.month);
-  btn.dataset.type = String(ev.type);
-  if (ev.year != null) btn.dataset.year = String(ev.year);
-  if (ev.name != null) btn.dataset.name = String(ev.name);
-  if (ev.text != null) btn.dataset.text = String(ev.text);
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "icon";
+    iconSpan.textContent = this.getIconForType(ev.type, ev.icon);
 
-  // Innehåll (matchar din HTML-struktur)
-  const daySpan = document.createElement("span");
-  daySpan.className = "day";
-  daySpan.textContent = String(ev.day);
+    const textSpan = document.createElement("span");
+    textSpan.className = "text";
+    textSpan.textContent = ev.name ? String(ev.name) : (ev.text ? String(ev.text) : "");
 
-  const iconSpan = document.createElement("span");
-  iconSpan.className = "icon";
-  iconSpan.textContent = this.getIconForType(ev.type, ev.icon);
+    const ageSpan = document.createElement("span");
+    ageSpan.className = "age";
+    ageSpan.textContent = "";
 
-  const textSpan = document.createElement("span");
-  textSpan.className = "text";
-  textSpan.textContent = ev.name ? String(ev.name) : (ev.text ? String(ev.text) : "");
+    btn.appendChild(daySpan);
+    btn.appendChild(iconSpan);
+    btn.appendChild(textSpan);
+    btn.appendChild(ageSpan);
 
-  const ageSpan = document.createElement("span");
-  ageSpan.className = "age";
-  ageSpan.textContent = ""; // fylls av updateAllAges()
-
-  btn.appendChild(daySpan);
-  btn.appendChild(iconSpan);
-  btn.appendChild(textSpan);
-  btn.appendChild(ageSpan);
-
-  return btn;
-},
+    return btn;
+  },
 
   initYearSelect() {
     const yearSelect = this.dom.yearSelect;
@@ -921,43 +919,41 @@ createDayItemButton(ev) {
     yearSelect.value = String(this.currentYear);
     this.selectedYear = this.currentYear;
 
-   yearSelect.addEventListener("change", () => {
-  this.selectedYear = parseInt(yearSelect.value, 10);
-  this.updateAllAges();
+    yearSelect.addEventListener("change", () => {
+      this.selectedYear = parseInt(yearSelect.value, 10);
+      this.updateAllAges();
 
-  if (document.body.classList.contains("overview-mode")) {
-    this.buildOverview();
-  }
-});
+      if (document.body.classList.contains("overview-mode")) {
+        this.buildOverview();
+      }
+    });
 
-// Förhindra att scrollhjulet råkar ändra år
-yearSelect.addEventListener(
-  "wheel",
-  (event) => {
-    event.preventDefault();
-  },
-  { passive: false }
-);
- 
+    yearSelect.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+      },
+      { passive: false }
+    );
   },
 
- updateAllAges() {
-  const buttons = document.querySelectorAll(this.selectors.birthdayButtons);
+  updateAllAges() {
+    const buttons = document.querySelectorAll(this.selectors.birthdayButtons);
 
-  buttons.forEach((btn) => {
-    const birthYearRaw = btn.dataset.year;
-    if (!birthYearRaw) return;
+    buttons.forEach((btn) => {
+      const birthYearRaw = btn.dataset.year;
+      if (!birthYearRaw) return;
 
-    const birthYear = parseInt(birthYearRaw, 10);
-    if (Number.isNaN(birthYear)) return;
+      const birthYear = parseInt(birthYearRaw, 10);
+      if (Number.isNaN(birthYear)) return;
 
-    const ageSpan = btn.querySelector(".age");
-    if (!ageSpan) return;
+      const ageSpan = btn.querySelector(".age");
+      if (!ageSpan) return;
 
-    const age = this.calculateAge(birthYear);
-    ageSpan.textContent = " " + age + " år";
-  });
-},
+      const age = this.calculateAge(birthYear);
+      ageSpan.textContent = " " + age + " år";
+    });
+  },
 
   setOverviewButtonLabel() {
     const btn = this.dom.toggleOverviewBtn;
@@ -967,386 +963,543 @@ yearSelect.addEventListener(
     btn.textContent = isOverview ? "Tillbaka till lista" : "Visa översikt";
   },
 
-renderMonthsFromEvents() {
-  const monthsRoot = document.getElementById("months");
-  if (!monthsRoot) return;
+  renderMonthsFromEvents() {
+    const monthsRoot = document.getElementById("months");
+    if (!monthsRoot) return;
 
-   const byMonth = new Map();
-  this.monthOrder.forEach((m) => byMonth.set(m, []));
+    const byMonth = new Map();
+    this.monthOrder.forEach((m) => byMonth.set(m, []));
 
-  this.events.forEach((ev) => {
-    if (!ev || !ev.month) return;
-    const monthKey = String(ev.month).toLowerCase().trim();
-    if (!byMonth.has(monthKey)) return;
-    byMonth.get(monthKey).push(ev);
-  });
-
-  const sections = Array.from(document.querySelectorAll(this.selectors.monthSections));
-
-  sections.forEach((section) => {
-    const monthKey = (section.dataset.month || "").toLowerCase().trim();
-    const ul = section.querySelector("ul");
-    if (!ul) return;
-
-    ul.innerHTML = "";
-
-    const monthEvents = byMonth.get(monthKey) || [];
-    monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
-
-    if (monthEvents.length === 0) {
-      const li = document.createElement("li");
-      li.dataset.type = "empty";
-
-      const day = document.createElement("span");
-      day.className = "day";
-      day.textContent = "";
-
-      const icon = document.createElement("span");
-      icon.className = "icon";
-      icon.textContent = "";
-
-      const text = document.createElement("span");
-      text.className = "text";
-      text.textContent = "Inga händelser ännu";
-
-      li.appendChild(day);
-      li.appendChild(icon);
-      li.appendChild(text);
-
-      ul.appendChild(li);
-      return;
-    }
-
-    monthEvents.forEach((ev) => {
-      const li = document.createElement("li");
-      const btn = this.createDayItemButton(ev);
-      li.appendChild(btn);
-      ul.appendChild(li);
-    });
-  });
-},
-
-  buildOverview() {
-  const overviewGrid = this.dom.overviewGrid;
-  if (!overviewGrid) return;
-
-  overviewGrid.innerHTML = "";
-
-  // Grupp: monthKey -> events[]
-  const byMonth = new Map();
-  this.monthOrder.forEach((m) => byMonth.set(m, []));
-
-  this.events.forEach((ev) => {
-    if (!ev || !ev.month) return;
-    const monthKey = String(ev.month).toLowerCase().trim();
-    if (!byMonth.has(monthKey)) return;
-    byMonth.get(monthKey).push(ev);
-  });
-
-  // Bygg månader i rätt ordning
-  this.monthOrder.forEach((monthKey) => {
-    const monthEvents = byMonth.get(monthKey) || [];
-    if (monthEvents.length === 0) return;
-
-    monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
-
-    const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
-
-    const monthDiv = document.createElement("div");
-    monthDiv.className = "overview-month";
-
-    const h2 = document.createElement("h2");
-    h2.textContent = monthTitle;
-
-    const ul = document.createElement("ul");
-
-    monthEvents.forEach((ev) => {
-      const li = document.createElement("li");
-      const btn = this.createDayItemButton(ev);
-      li.appendChild(btn);
-      ul.appendChild(li);
+    this.events.forEach((ev) => {
+      if (!ev || !ev.month) return;
+      const monthKey = String(ev.month).toLowerCase().trim();
+      if (!byMonth.has(monthKey)) return;
+      byMonth.get(monthKey).push(ev);
     });
 
-    if (ul.children.length === 0) return;
+    const sections = Array.from(document.querySelectorAll(this.selectors.monthSections));
 
-    monthDiv.appendChild(h2);
-    monthDiv.appendChild(ul);
-    overviewGrid.appendChild(monthDiv);
-  });
+    sections.forEach((section) => {
+      const monthKey = (section.dataset.month || "").toLowerCase().trim();
+      const ul = section.querySelector("ul");
+      if (!ul) return;
 
-  this.updateAllAges();
-},
+      ul.innerHTML = "";
 
-  buildPrintView() {
-  const { printMeta, printWrap } = this.dom;
-  if (!printMeta || !printWrap) return;
+      const monthEvents = byMonth.get(monthKey) || [];
+      monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
 
- const onlyBirthdays = true;
+      if (monthEvents.length === 0) {
+        const li = document.createElement("li");
+        li.dataset.type = "empty";
 
-  printMeta.textContent = `År: ${this.selectedYear}`;
-  printWrap.innerHTML = "";
+        const day = document.createElement("span");
+        day.className = "day";
+        day.textContent = "";
 
-  const colLeft = document.createElement("div");
-  colLeft.className = "print-col print-col-left";
+        const icon = document.createElement("span");
+        icon.className = "icon";
+        icon.textContent = "";
 
-  const colRight = document.createElement("div");
-  colRight.className = "print-col print-col-right";
+        const text = document.createElement("span");
+        text.className = "text";
+        text.textContent = "Inga händelser ännu";
 
-  printWrap.appendChild(colLeft);
-  printWrap.appendChild(colRight);
+        li.appendChild(day);
+        li.appendChild(icon);
+        li.appendChild(text);
 
-  // Grupp: monthKey -> events[]
-  const byMonth = new Map();
-  this.monthOrder.forEach((m) => byMonth.set(m, []));
-
-  this.events.forEach((ev) => {
-    if (!ev || !ev.month) return;
-    const monthKey = String(ev.month).toLowerCase().trim();
-    if (!byMonth.has(monthKey)) return;
-
-    const evType = String(ev.type || "").toLowerCase();
-    if (onlyBirthdays && evType !== "birthday") return;
-
-    byMonth.get(monthKey).push(ev);
-  });
-
-  // Bygg print-månader i rätt ordning
-  this.monthOrder.forEach((monthKey, idx) => {
-    const monthEvents = byMonth.get(monthKey) || [];
-    if (monthEvents.length === 0) return;
-
-    // Sortera på dag
-    monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
-
-    const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
-
-    const monthDiv = document.createElement("div");
-    monthDiv.className = "print-month";
-
-    const h2 = document.createElement("h2");
-    h2.textContent = monthTitle;
-
-    const ul = document.createElement("ul");
-
-      monthEvents.forEach((ev) => {
-      const day = ev.day != null ? String(ev.day) : "";
-      const name = ev.name != null ? String(ev.name) : "";
-      if (!day || !name) return;
-
-           const evType = String(ev.type || "").trim().toLowerCase();
-      const icon = evType === "birthday" ? "🎂" : "";
-
-      let ageText = "";
-      if (evType === "birthday" && ev.year != null) {
-        const birthYear = parseInt(String(ev.year).trim(), 10);
-        if (!Number.isNaN(birthYear)) {
-          const age = this.calculateAge(birthYear);
-          ageText = ` (${age} år)`;
-        }
+        ul.appendChild(li);
+        return;
       }
 
-      const li = document.createElement("li");
-      li.textContent = `${day} ${icon} ${name}${ageText}`;
-      ul.appendChild(li);
+      monthEvents.forEach((ev) => {
+        const li = document.createElement("li");
+        const btn = this.createDayItemButton(ev);
+        li.appendChild(btn);
+        ul.appendChild(li);
+      });
+    });
+  },
+
+  buildOverview() {
+    const overviewGrid = this.dom.overviewGrid;
+    if (!overviewGrid) return;
+
+    overviewGrid.innerHTML = "";
+
+    const byMonth = new Map();
+    this.monthOrder.forEach((m) => byMonth.set(m, []));
+
+    this.events.forEach((ev) => {
+      if (!ev || !ev.month) return;
+      const monthKey = String(ev.month).toLowerCase().trim();
+      if (!byMonth.has(monthKey)) return;
+      byMonth.get(monthKey).push(ev);
     });
 
-    if (ul.children.length === 0) return;
+    this.monthOrder.forEach((monthKey) => {
+      const monthEvents = byMonth.get(monthKey) || [];
+      if (monthEvents.length === 0) return;
 
-    monthDiv.appendChild(h2);
-    monthDiv.appendChild(ul);
+      monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
 
-    // Jan–Jun vänster, Jul–Dec höger
-    if (idx <= 5) {
-      colLeft.appendChild(monthDiv);
-    } else {
-      colRight.appendChild(monthDiv);
+      const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
+
+      const monthDiv = document.createElement("div");
+      monthDiv.className = "overview-month";
+
+      const h2 = document.createElement("h2");
+      h2.textContent = monthTitle;
+
+      const ul = document.createElement("ul");
+
+      monthEvents.forEach((ev) => {
+        const li = document.createElement("li");
+        const btn = this.createDayItemButton(ev);
+        li.appendChild(btn);
+        ul.appendChild(li);
+      });
+
+      if (ul.children.length === 0) return;
+
+      monthDiv.appendChild(h2);
+      monthDiv.appendChild(ul);
+      overviewGrid.appendChild(monthDiv);
+    });
+
+    this.updateAllAges();
+  },
+
+  async copyBirthdaysToClipboard() {
+    const text = this.buildBirthdaysText();
+
+    if (location.protocol === "file:") {
+      return false;
     }
-  });
-},
 
-printBirthdaysOnly() {
-  this.handleBeforePrint();
-  window.print();
-},
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        // fall through
+      }
+    }
 
-resetPrintFlags() {
-  if (document.body.classList.contains("print-birthdays-only")) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+
+    ta.style.position = "fixed";
+    ta.style.top = "0";
+    ta.style.left = "0";
+    ta.style.width = "1px";
+    ta.style.height = "1px";
+    ta.style.opacity = "0";
+
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (e) {
+      ok = false;
+    }
+
+    document.body.removeChild(ta);
+    return ok;
+  },
+
+  showCopyHelper(text) {
+    const existing = document.getElementById("copyHelperOverlay");
+    if (existing) existing.remove();
+
+    const wrap = document.createElement("div");
+    wrap.id = "copyHelperOverlay";
+    wrap.style.position = "fixed";
+    wrap.style.inset = "0";
+    wrap.style.background = "rgba(0,0,0,0.5)";
+    wrap.style.zIndex = "9999";
+    wrap.style.display = "flex";
+    wrap.style.alignItems = "center";
+    wrap.style.justifyContent = "center";
+    wrap.style.padding = "16px";
+
+    const box = document.createElement("div");
+    box.style.background = "#fff";
+    box.style.width = "min(720px, 100%)";
+    box.style.maxHeight = "min(80vh, 100%)";
+    box.style.borderRadius = "12px";
+    box.style.padding = "12px";
+    box.style.boxShadow = "0 10px 30px rgba(0,0,0,0.25)";
+    box.style.display = "flex";
+    box.style.flexDirection = "column";
+    box.style.gap = "8px";
+
+    const top = document.createElement("div");
+    top.style.display = "flex";
+    top.style.alignItems = "center";
+    top.style.justifyContent = "space-between";
+    top.style.gap = "12px";
+
+    const title = document.createElement("div");
+    title.textContent = "Kopiera listan";
+    title.style.fontWeight = "600";
+
+    const hint = document.createElement("div");
+    hint.textContent = "Tryck Cmd+C (Mac) eller Ctrl+C (Windows) och stäng sedan.";
+    hint.style.fontSize = "12px";
+    hint.style.opacity = "0.8";
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Stäng";
+    close.style.padding = "6px 10px";
+    close.addEventListener("click", () => wrap.remove());
+
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.readOnly = true;
+    ta.style.width = "100%";
+    ta.style.flex = "1";
+    ta.style.minHeight = "240px";
+    ta.style.resize = "vertical";
+
+    top.appendChild(title);
+    top.appendChild(close);
+
+    box.appendChild(top);
+    box.appendChild(hint);
+    box.appendChild(ta);
+    wrap.appendChild(box);
+    document.body.appendChild(wrap);
+
+    ta.focus();
+    ta.select();
+  },
+
+  buildBirthdaysText() {
+    const onlyBirthdays = true;
+
+    const byMonth = new Map();
+    this.monthOrder.forEach((m) => byMonth.set(m, []));
+
+    this.events.forEach((ev) => {
+      if (!ev || !ev.month) return;
+      const monthKey = String(ev.month).toLowerCase().trim();
+      if (!byMonth.has(monthKey)) return;
+
+      if (onlyBirthdays && String(ev.type).toLowerCase() !== "birthday") return;
+
+      byMonth.get(monthKey).push(ev);
+    });
+
+    const lines = [];
+    lines.push(`Födelsedagar – År ${this.selectedYear}`);
+    lines.push("");
+
+    this.monthOrder.forEach((monthKey) => {
+      const monthEvents = byMonth.get(monthKey) || [];
+      if (monthEvents.length === 0) return;
+
+      monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
+
+      const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
+      lines.push(monthTitle);
+
+      monthEvents.forEach((ev) => {
+        const day = ev.day != null ? String(ev.day) : "";
+        const name = ev.name != null ? String(ev.name) : "";
+        if (!day || !name) return;
+
+        let ageText = "";
+        if (ev.year != null) {
+          const birthYear = parseInt(String(ev.year), 10);
+          if (!Number.isNaN(birthYear)) {
+            const age = this.calculateAge(birthYear);
+            ageText = ` (${age} år)`;
+          }
+        }
+
+        lines.push(`${day} 🎂 ${name}${ageText}`);
+      });
+
+      lines.push("");
+    });
+
+    return lines.join("\n").trim();
+  },
+
+  buildPrintView() {
+    const { printMeta, printWrap } = this.dom;
+    if (!printMeta || !printWrap) return;
+
+    const onlyBirthdays = true;
+
+    printMeta.textContent = `År: ${this.selectedYear}`;
+    printWrap.innerHTML = "";
+
+    const colLeft = document.createElement("div");
+    colLeft.className = "print-col print-col-left";
+
+    const colRight = document.createElement("div");
+    colRight.className = "print-col print-col-right";
+
+    printWrap.appendChild(colLeft);
+    printWrap.appendChild(colRight);
+
+    const byMonth = new Map();
+    this.monthOrder.forEach((m) => byMonth.set(m, []));
+
+    this.events.forEach((ev) => {
+      if (!ev || !ev.month) return;
+      const monthKey = String(ev.month).toLowerCase().trim();
+      if (!byMonth.has(monthKey)) return;
+
+      const evType = String(ev.type || "").toLowerCase();
+      if (onlyBirthdays && evType !== "birthday") return;
+
+      byMonth.get(monthKey).push(ev);
+    });
+
+    this.monthOrder.forEach((monthKey, idx) => {
+      const monthEvents = byMonth.get(monthKey) || [];
+      if (monthEvents.length === 0) return;
+
+      monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
+
+      const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
+
+      const monthDiv = document.createElement("div");
+      monthDiv.className = "print-month";
+
+      const h2 = document.createElement("h2");
+      h2.textContent = monthTitle;
+
+      const ul = document.createElement("ul");
+
+      monthEvents.forEach((ev) => {
+        const day = ev.day != null ? String(ev.day) : "";
+        const name = ev.name != null ? String(ev.name) : "";
+        if (!day || !name) return;
+
+        const evType = String(ev.type || "").trim().toLowerCase();
+        const icon = evType === "birthday" ? "🎂" : "";
+
+        let ageText = "";
+        if (evType === "birthday" && ev.year != null) {
+          const birthYear = parseInt(String(ev.year).trim(), 10);
+          if (!Number.isNaN(birthYear)) {
+            const age = this.calculateAge(birthYear);
+            ageText = ` (${age} år)`;
+          }
+        }
+
+        const li = document.createElement("li");
+        li.textContent = `${day} ${icon} ${name}${ageText}`;
+        ul.appendChild(li);
+      });
+
+      if (ul.children.length === 0) return;
+
+      monthDiv.appendChild(h2);
+      monthDiv.appendChild(ul);
+
+      if (idx <= 5) {
+        colLeft.appendChild(monthDiv);
+      } else {
+        colRight.appendChild(monthDiv);
+      }
+    });
+  },
+
+  printBirthdaysOnly() {
+    this.handleBeforePrint();
+    window.print();
+  },
+
+  resetPrintFlags() {
     document.body.classList.remove("print-birthdays-only");
-  }
-  this._isPreparingPrint = false;
-  this.resetYearToCurrent();
-},
+    this._isPreparingPrint = false;
+    this.resetYearToCurrent();
+  },
 
-handleBeforePrint() {
-  if (this._isPreparingPrint) return;
-  this._isPreparingPrint = true;
+  handleBeforePrint() {
+    if (this._isPreparingPrint) return;
+    this._isPreparingPrint = true;
 
-  document.body.classList.add("print-birthdays-only");
-  this.buildPrintView();
-},
+    document.body.classList.add("print-birthdays-only");
+    this.buildPrintView();
+  },
 
-handleDocumentClick(event) {
-  const dayButton = event.target.closest(".day-item");
-  if (!dayButton) return;
+  handleDocumentClick(event) {
+    const dayButton = event.target.closest(".day-item");
+    if (!dayButton) return;
 
-  const hasDay = !!(dayButton.dataset && dayButton.dataset.day);
-  const hasMonth = !!(dayButton.dataset && dayButton.dataset.month);
-  if (!hasDay || !hasMonth) return;
+    const hasDay = !!(dayButton.dataset && dayButton.dataset.day);
+    const hasMonth = !!(dayButton.dataset && dayButton.dataset.month);
+    if (!hasDay || !hasMonth) return;
 
-  this.openOverlayFromButton(dayButton);
-},
+    this.openOverlayFromButton(dayButton);
+  },
 
-handleKeydown(event) {
-  const { overlay } = this.dom;
-  if (event.key === "Escape" && overlay) {
-    this.closeOverlay();
-  }
-},
+  handleKeydown(event) {
+    const { overlay } = this.dom;
+    if (event.key === "Escape" && overlay) {
+      this.closeOverlay();
+    }
+  },
 
-handleOverlayClick(event) {
-  const { overlay } = this.dom;
-  if (overlay && event.target === overlay) {
-    this.closeOverlay();
-  }
-},
+  handleOverlayClick(event) {
+    const { overlay } = this.dom;
+    if (overlay && event.target === overlay) {
+      this.closeOverlay();
+    }
+  },
 
   toggleOverview() {
-  const willShow = !document.body.classList.contains("overview-mode");
+    const willShow = !document.body.classList.contains("overview-mode");
 
-  if (willShow) {
-    document.body.classList.add("overview-mode");
-    this.buildOverview();
-  } else {
-    document.body.classList.remove("overview-mode");
-    this.resetYearToCurrent();
-  }
+    if (willShow) {
+      document.body.classList.add("overview-mode");
+      this.buildOverview();
+    } else {
+      document.body.classList.remove("overview-mode");
+      this.resetYearToCurrent();
+    }
 
-  this.setOverviewButtonLabel();
-},
+    this.setOverviewButtonLabel();
+  },
 
-resetYearToCurrent() {
-  const { yearSelect } = this.dom;
-  if (!yearSelect) return;
+  resetYearToCurrent() {
+    const { yearSelect } = this.dom;
+    if (!yearSelect) return;
 
-  yearSelect.value = String(this.currentYear);
-  this.selectedYear = this.currentYear;
-  this.updateAllAges();
+    yearSelect.value = String(this.currentYear);
+    this.selectedYear = this.currentYear;
+    this.updateAllAges();
 
-  if (document.body.classList.contains("overview-mode")) {
-    this.buildOverview();
-  }
-},
+    if (document.body.classList.contains("overview-mode")) {
+      this.buildOverview();
+    }
+  },
 
   openOverlayFromButton(dayButton) {
-  const { overlay, overlayTitle, overlayText, openSound } = this.dom;
-  if (!overlay || !overlayTitle || !overlayText) return;
+    const { overlay, overlayTitle, overlayText, openSound } = this.dom;
+    if (!overlay || !overlayTitle || !overlayText) return;
 
-  const monthKey = (dayButton.dataset.month || "").trim().toLowerCase();
-  const month = monthKey ? monthKey.charAt(0).toUpperCase() + monthKey.slice(1) : "";
+    const monthKey = (dayButton.dataset.month || "").trim().toLowerCase();
+    const month = monthKey ? monthKey.charAt(0).toUpperCase() + monthKey.slice(1) : "";
 
-  const day = (dayButton.dataset.day || "").trim();
-  const type = (dayButton.dataset.type || "").trim().toLowerCase();
-  const birthYearRaw = dayButton.dataset.year;
-  const name = (dayButton.dataset.name || "").trim();
-  const text = (dayButton.dataset.text || "").trim();
+    const day = (dayButton.dataset.day || "").trim();
+    const type = (dayButton.dataset.type || "").trim().toLowerCase();
+    const birthYearRaw = dayButton.dataset.year;
+    const name = (dayButton.dataset.name || "").trim();
+    const text = (dayButton.dataset.text || "").trim();
 
-  overlayTitle.textContent = day && month ? `${day} ${month}` : (month || "");
+    overlayTitle.textContent = day && month ? `${day} ${month}` : (month || "");
 
-  if (type === "birthday" && birthYearRaw && name) {
-    const birthYear = parseInt(birthYearRaw, 10);
-    if (!Number.isNaN(birthYear)) {
-      const age = this.calculateAge(birthYear);
-      overlayText.textContent = `${name} fyller ${age} år`;
+    if (type === "birthday" && birthYearRaw && name) {
+      const birthYear = parseInt(birthYearRaw, 10);
+      if (!Number.isNaN(birthYear)) {
+        const age = this.calculateAge(birthYear);
+        overlayText.textContent = `${name} fyller ${age} år`;
+      } else {
+        overlayText.textContent = name;
+      }
     } else {
-      overlayText.textContent = name;
+      overlayText.textContent = text || name || "";
     }
-  } else {
-    // För andra typer: visa text om den finns, annars namn, annars tomt
-    overlayText.textContent = text || name || "";
-  }
 
-  overlay.classList.remove("hidden");
+    overlay.classList.remove("hidden");
 
     if (openSound) {
-    const p = openSound.play();
-    if (p && typeof p.catch === "function") {
-      p.catch(() => {});
+      const p = openSound.play();
+      if (p && typeof p.catch === "function") {
+        p.catch(() => {});
+      }
     }
-  }
-},
+  },
 
-    closeOverlay() {
+  closeOverlay() {
     const { overlay } = this.dom;
     if (!overlay) return;
     overlay.classList.add("hidden");
 
-    if (
-      !document.body.classList.contains("overview-mode") &&
-      this.selectedYear !== this.currentYear
-    ) {
+    if (!document.body.classList.contains("overview-mode") && this.selectedYear !== this.currentYear) {
       this.resetYearToCurrent();
     }
   },
 
-  /* =========================
-     3. EVENT LISTENERS + INIT
-  ========================= */
   bindEvents() {
-  const { toggleOverviewBtn, closeBtn, overlay, printBtn } = this.dom;
+    const { toggleOverviewBtn, closeBtn, overlay, printBtn, copyBtn } = this.dom;
 
-  if (toggleOverviewBtn) {
-    toggleOverviewBtn.addEventListener("click", () => {
-      this.toggleOverview();
+    if (toggleOverviewBtn) {
+      toggleOverviewBtn.addEventListener("click", () => {
+        this.toggleOverview();
+      });
+    }
+
+    document.addEventListener("click", (event) => {
+      this.handleDocumentClick(event);
     });
-  }
 
-  document.addEventListener("click", (event) => {
-    this.handleDocumentClick(event);
-  });
+    if (closeBtn && overlay) {
+      closeBtn.addEventListener("click", () => {
+        this.closeOverlay();
+      });
+    }
 
-  if (closeBtn && overlay) {
-    closeBtn.addEventListener("click", () => {
-      this.closeOverlay();
+    if (overlay) {
+      overlay.addEventListener("click", (event) => {
+        this.handleOverlayClick(event);
+      });
+    }
+
+    document.addEventListener("keydown", (event) => {
+      this.handleKeydown(event);
     });
-  }
 
-  if (overlay) {
-    overlay.addEventListener("click", (event) => {
-      this.handleOverlayClick(event);
+    window.addEventListener("beforeprint", () => {
+      this.handleBeforePrint();
     });
-  }
 
-  document.addEventListener("keydown", (event) => {
-    this.handleKeydown(event);
-  });
-
-  window.addEventListener("beforeprint", () => {
-    this.handleBeforePrint();
-  });
-
-  window.addEventListener("afterprint", () => {
-    this.resetPrintFlags();
-  });
-
-  if (printBtn) {
-    printBtn.addEventListener("click", () => {
-      this.printBirthdaysOnly();
+    window.addEventListener("afterprint", () => {
+      this.resetPrintFlags();
     });
+
+    if (printBtn) {
+      printBtn.addEventListener("click", () => {
+        this.printBirthdaysOnly();
+      });
+    }
+
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        const text = this.buildBirthdaysText();
+        const ok = await this.copyBirthdaysToClipboard();
+
+        if (!ok) {
+          this.showCopyHelper(text);
+        }
+      });
+    }
+  },
+
+  init() {
+    this.selectedYear = this.currentYear;
+    this.cacheDom();
+
+    this.renderMonthsFromEvents();
+
+    this.bindEvents();
+    this.initYearSelect();
+    this.updateAllAges();
+    this.setOverviewButtonLabel();
   }
-},
-
- init() {
-  this.selectedYear = this.currentYear;
-  this.cacheDom();
-
-  this.renderMonthsFromEvents();
-
-  this.bindEvents();
-  this.initYearSelect();
-  this.updateAllAges();
-  this.setOverviewButtonLabel();
-}
-
 };
 
 window.addEventListener("load", () => {
