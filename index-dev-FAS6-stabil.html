@@ -829,22 +829,8 @@ events: [
     this.dom.overviewGrid = document.getElementById("overviewGrid");
     this.dom.printMeta = document.getElementById("printMeta");
     this.dom.printWrap = document.getElementById("printWrap");
+  },
 
-       // Ladda ljud endast när vi inte kör via file:// (för att slippa Safari-konsolfel)
-    if (this.dom.openSound) {
-      const source = this.dom.openSound.querySelector("source");
-      if (source) {
-        if (location.protocol === "file:") {
-          source.removeAttribute("src");
-        } else {
-          const ds = source.getAttribute("data-src");
-          if (ds) source.setAttribute("src", ds);
-        }
-      }
-      this.dom.openSound.load();
-    }
-},
-  
   calculateAge(birthYear) {
     const y = Number.isFinite(this.selectedYear) ? this.selectedYear : this.currentYear;
     return y - birthYear;
@@ -1354,8 +1340,8 @@ window.addEventListener("load", () => {
 });
 </script>
 
-<audio id="openSound" preload="none">
-  <source data-src="./pop.mp3" type="audio/mpeg">
+<audio id="openSound" preload="auto">
+  <source src="pop.mp3" type="audio/mpeg">
 </audio>
 
 </body>
