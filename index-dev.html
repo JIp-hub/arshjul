@@ -220,6 +220,16 @@
     display: none !important;
   }
 }
+/* Tydlig visuell indikator när toppkontroller är låsta */
+body.controls-locked .controls {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+body.controls-locked #copyHelperOverlay {
+  pointer-events: auto;
+  opacity: 1;
+}
 
 </style>
   
@@ -831,6 +841,17 @@ const App = {
     this.dom.overviewGrid = document.getElementById("overviewGrid");
     this.dom.printMeta = document.getElementById("printMeta");
     this.dom.printWrap = document.getElementById("printWrap");
+        // Se till att toppkontroller ligger över overlay (så klick går igenom)
+    const topControls = [this.dom.printBtn, this.dom.copyBtn, this.dom.yearSelect, this.dom.toggleOverviewBtn];
+    topControls.forEach((el) => {
+      if (!el) return;
+      el.style.position = "relative";
+      el.style.zIndex = "10001";
+      if (el.parentElement) {
+        el.parentElement.style.position = "relative";
+        el.parentElement.style.zIndex = "10001";
+      }
+    });
 
     // Ljud: undvik fel i file://
     if (this.dom.openSound) {
@@ -845,6 +866,21 @@ const App = {
       }
       this.dom.openSound.load();
     }
+  },
+    lockTopControls() {
+    document.body.classList.add("controls-locked");
+    if (this.dom.yearSelect) this.dom.yearSelect.disabled = true;
+    if (this.dom.printBtn) this.dom.printBtn.disabled = true;
+    if (this.dom.copyBtn) this.dom.copyBtn.disabled = true;
+    if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = true;
+  },
+
+  unlockTopControls() {
+    document.body.classList.remove("controls-locked");
+    if (this.dom.yearSelect) this.dom.yearSelect.disabled = false;
+    if (this.dom.printBtn) this.dom.printBtn.disabled = false;
+    if (this.dom.copyBtn) this.dom.copyBtn.disabled = false;
+    if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = false;
   },
 
   calculateAge(birthYear) {
@@ -1113,9 +1149,12 @@ const App = {
     return ok;
   },
 
-  showCopyHelper(text) {
+    showCopyHelper(text) {
     const existing = document.getElementById("copyHelperOverlay");
     if (existing) existing.remove();
+
+        // Lås toppkontroller medan kopieramodalen är öppen
+    this.lockTopControls();
 
     const wrap = document.createElement("div");
     wrap.id = "copyHelperOverlay";
@@ -1158,7 +1197,6 @@ const App = {
     close.type = "button";
     close.textContent = "Stäng";
     close.style.padding = "6px 10px";
-    close.addEventListener("click", () => wrap.remove());
 
     const ta = document.createElement("textarea");
     ta.value = text;
@@ -1167,6 +1205,35 @@ const App = {
     ta.style.flex = "1";
     ta.style.minHeight = "240px";
     ta.style.resize = "vertical";
+
+    // Stabil kolumnkänsla i modalen
+    ta.style.fontFamily =
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+    ta.style.fontVariantNumeric = "tabular-nums";
+
+        const unlockControls = () => {
+      this.unlockTopControls();
+    };
+
+    const closeModal = () => {
+      wrap.remove();
+      unlockControls();
+
+      // När man stänger kopieringsfönstret: återgå till nuvarande år i linjära vyn
+      if (!document.body.classList.contains("overview-mode") && this.selectedYear !== this.currentYear) {
+        this.resetYearToCurrent();
+      }
+
+      // Sätt tillbaka fokus så UI känns “klart”
+      if (this.dom.copyBtn) this.dom.copyBtn.focus();
+    };
+
+    close.addEventListener("click", closeModal);
+
+    // Klick på bakgrunden stänger (valfritt men stabilt)
+    wrap.addEventListener("click", (e) => {
+      if (e.target === wrap) closeModal();
+    });
 
     top.appendChild(title);
     top.appendChild(close);
@@ -1224,7 +1291,9 @@ const App = {
           }
         }
 
-        lines.push(`${day} 🎂 ${name}${ageText}`);
+               const paddedDay = day.padStart(2, " ");
+ 
+        lines.push(`${paddedDay}\t🎂\t${name}${ageText}`);
       });
 
       lines.push("");
@@ -1241,6 +1310,27 @@ const App = {
 
     printMeta.textContent = `År: ${this.selectedYear}`;
     printWrap.innerHTML = "";
+    // Print: styles för fasta kolumner (endast för printlistan)
+    if (!document.getElementById("printBirthdayRowStyles")) {
+      const style = document.createElement("style");
+      style.id = "printBirthdayRowStyles";
+      style.textContent = `
+        .print-row {
+          display: grid;
+          grid-template-columns: 2ch 2ch 1fr;
+          column-gap: 0.6ch;
+          align-items: baseline;
+        }
+        .print-row .print-day {
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+        .print-row .print-icon {
+          text-align: center;
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
     const colLeft = document.createElement("div");
     colLeft.className = "print-col print-col-left";
@@ -1298,9 +1388,27 @@ const App = {
           }
         }
 
-        const li = document.createElement("li");
-        li.textContent = `${day} ${icon} ${name}${ageText}`;
+         const li = document.createElement("li");
+        li.className = "print-row";
+
+        const daySpan = document.createElement("span");
+        daySpan.className = "print-day";
+        daySpan.textContent = day;
+
+        const iconSpan = document.createElement("span");
+        iconSpan.className = "print-icon";
+        iconSpan.textContent = icon;
+
+        const textSpan = document.createElement("span");
+        textSpan.className = "print-text";
+        textSpan.textContent = `${name}${ageText}`;
+
+        li.appendChild(daySpan);
+        li.appendChild(iconSpan);
+        li.appendChild(textSpan);
+
         ul.appendChild(li);
+
       });
 
       if (ul.children.length === 0) return;
@@ -1321,21 +1429,37 @@ const App = {
     window.print();
   },
 
-  resetPrintFlags() {
+      resetPrintFlags() {
     document.body.classList.remove("print-birthdays-only");
     this._isPreparingPrint = false;
+
+    if (this.dom.printWrap) this.dom.printWrap.innerHTML = "";
+
+       // Lås upp toppkontroller igen
+    this.unlockTopControls();
+
+    // Efter print: återgå till nuvarande år (2026)
     this.resetYearToCurrent();
   },
-
-  handleBeforePrint() {
+ 
+    handleBeforePrint() {
     if (this._isPreparingPrint) return;
     this._isPreparingPrint = true;
+
+        // Lås toppkontroller under print (förutsägbart läge)
+    this.lockTopControls();
+
+    // Stäng overlay visuellt inför print
+    if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) {
+      this.dom.overlay.classList.add("hidden");
+    }
 
     document.body.classList.add("print-birthdays-only");
     this.buildPrintView();
   },
 
   handleDocumentClick(event) {
+   
     const dayButton = event.target.closest(".day-item");
     if (!dayButton) return;
 
@@ -1477,13 +1601,17 @@ const App = {
       });
     }
 
-    if (copyBtn) {
+       if (copyBtn) {
       copyBtn.addEventListener("click", async () => {
-        const text = this.buildBirthdaysText();
-        const ok = await this.copyBirthdaysToClipboard();
+        try {
+          const text = this.buildBirthdaysText();
+          const ok = await this.copyBirthdaysToClipboard();
 
-        if (!ok) {
-          this.showCopyHelper(text);
+          if (!ok) {
+            this.showCopyHelper(text);
+          }
+        } catch (e) {
+          console.error("Fel vid kopiering av födelsedagslista:", e);
         }
       });
     }
