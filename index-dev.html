@@ -902,6 +902,119 @@ const App = {
     printWrap: null
   },
 
+  /* ===== DATASTORE (EVENTS) ===== */
+  dataStore: {
+    events: {
+      key: "arshjul_user_events_v1",
+
+      _writeEvents(events) {
+        try {
+          localStorage.setItem(this.key, JSON.stringify(events));
+        } catch {
+          // ignorera (t.ex. om storage är blockerat)
+        }
+      },
+
+      listEvents() {
+        const normText = (s) =>
+          String(s ?? "")
+            .replace(/[\u200B-\u200D\uFEFF]/g, "") // tar bort zero-width tecken
+            .trim();
+
+        const toISODate = (s) => {
+          const raw = normText(s).replace(/\s+/g, "");
+          // Förväntar "YYYY-MM-DD" men hanterar även "YYYY-M-D"
+          const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+          if (!m) return raw;
+          const yyyy = m[1];
+          const mm = String(m[2]).padStart(2, "0");
+          const dd = String(m[3]).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        };
+
+        const sig = (ev) => {
+          const date = toISODate(ev?.date);
+          const title = normText(ev?.title).toLowerCase().replace(/\s+/g, " ");
+          const time = normText(ev?.time).toLowerCase().replace(/\s+/g, " ");
+          const place = normText(ev?.place).toLowerCase().replace(/\s+/g, " ");
+          const desc = normText(ev?.desc).toLowerCase().replace(/\s+/g, " ");
+          const createdBy = normText(ev?.createdBy).toLowerCase().replace(/\s+/g, " ");
+          return [date, title, time, place, desc, createdBy].join("|");
+        };
+
+        try {
+          const raw = localStorage.getItem(this.key);
+          const parsed = raw ? JSON.parse(raw) : [];
+          const arr = Array.isArray(parsed) ? parsed : [];
+
+          // 1) Normalisera fält (framför allt date)
+          const normalized = arr.map((ev) => {
+            if (!ev || typeof ev !== "object") return ev;
+            return {
+              ...ev,
+              title: normText(ev.title),
+              date: toISODate(ev.date),
+              time: normText(ev.time),
+              place: normText(ev.place),
+              desc: normText(ev.desc),
+              createdBy: normText(ev.createdBy),
+            };
+          });
+
+          // 2) Deduplicera (behåll första förekomsten)
+          const seen = new Set();
+          const cleaned = [];
+          for (const ev of normalized) {
+            const k = sig(ev);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            cleaned.push(ev);
+          }
+
+          // 3) Skriv tillbaka om något ändrades (städning permanent)
+          const changed =
+            cleaned.length !== arr.length ||
+            JSON.stringify(cleaned) !== JSON.stringify(arr);
+
+          if (changed) {
+            this._writeEvents(cleaned);
+          }
+
+          return cleaned;
+        } catch {
+          return [];
+        }
+      },
+
+      createEvent(event) {
+        const arr = this.listEvents();
+        arr.push(event);
+        this._writeEvents(arr);
+      },
+
+      updateEvent(id, patchOrEvent) {
+        const arr = this.listEvents();
+        const idx = arr.findIndex((ev) => ev && ev.id === id);
+        if (idx === -1) return false;
+
+        arr[idx] =
+          patchOrEvent && typeof patchOrEvent === "object" && !Array.isArray(patchOrEvent)
+            ? { ...arr[idx], ...patchOrEvent }
+            : patchOrEvent;
+
+        this._writeEvents(arr);
+        return true;
+      },
+
+      deleteEvent(id) {
+        const arr = this.listEvents();
+        const next = arr.filter((ev) => ev && ev.id !== id);
+        this._writeEvents(next);
+        return next.length !== arr.length;
+      }
+    }
+  },
+
   /* ==========================
      2. FUNCTIONS
   ========================= */
@@ -2103,84 +2216,11 @@ openImportEventsOverlay() {
   }
 },
 getUserEvents() {
-  const key = "arshjul_user_events_v1";
-
-  const normText = (s) =>
-    String(s ?? "")
-      .replace(/[\u200B-\u200D\uFEFF]/g, "") // tar bort zero-width tecken
-      .trim();
-
-  const toISODate = (s) => {
-    const raw = normText(s).replace(/\s+/g, "");
-    // Förväntar "YYYY-MM-DD" men hanterar även "YYYY-M-D"
-    const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (!m) return raw;
-    const yyyy = m[1];
-    const mm = String(m[2]).padStart(2, "0");
-    const dd = String(m[3]).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const sig = (ev) => {
-    const date = toISODate(ev?.date);
-    const title = normText(ev?.title).toLowerCase().replace(/\s+/g, " ");
-    const time = normText(ev?.time).toLowerCase().replace(/\s+/g, " ");
-    const place = normText(ev?.place).toLowerCase().replace(/\s+/g, " ");
-    const desc = normText(ev?.desc).toLowerCase().replace(/\s+/g, " ");
-    const createdBy = normText(ev?.createdBy).toLowerCase().replace(/\s+/g, " ");
-    return [date, title, time, place, desc, createdBy].join("|");
-  };
-
-  try {
-    const raw = localStorage.getItem(key);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const arr = Array.isArray(parsed) ? parsed : [];
-
-    // 1) Normalisera fält (framför allt date)
-    const normalized = arr.map((ev) => {
-      if (!ev || typeof ev !== "object") return ev;
-      return {
-        ...ev,
-        title: normText(ev.title),
-        date: toISODate(ev.date),
-        time: normText(ev.time),
-        place: normText(ev.place),
-        desc: normText(ev.desc),
-        createdBy: normText(ev.createdBy),
-      };
-    });
-
-    // 2) Deduplicera (behåll första förekomsten)
-    const seen = new Set();
-    const cleaned = [];
-    for (const ev of normalized) {
-      const k = sig(ev);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      cleaned.push(ev);
-    }
-
-    // 3) Skriv tillbaka om något ändrades (städning permanent)
-    const changed =
-      cleaned.length !== arr.length ||
-      JSON.stringify(cleaned) !== JSON.stringify(arr);
-
-    if (changed) {
-      localStorage.setItem(key, JSON.stringify(cleaned));
-    }
-
-    return cleaned;
-  } catch {
-    return [];
-  }
+  return this.dataStore.events.listEvents();
 },
 
 setUserEvents(events) {
-  try {
-    localStorage.setItem("arshjul_user_events_v1", JSON.stringify(events));
-  } catch {
-    // ignorera (t.ex. om storage är blockerat)
-  }
+  this.dataStore.events._writeEvents(events);
 },
 
 addUserEvent(ev) {
@@ -2212,8 +2252,7 @@ addUserEvent(ev) {
 
   if (exists) return; // redan sparad
 
-  current.push(ev);
-  this.setUserEvents(current);
+  this.dataStore.events.createEvent(ev);
 },
 
 getUserEventById(id) {
@@ -2222,20 +2261,11 @@ getUserEventById(id) {
 },
 
 updateUserEvent(updated) {
-  const arr = this.getUserEvents();
-  const idx = arr.findIndex((e) => e && e.id === updated.id);
-  if (idx === -1) return false;
-
-  arr[idx] = updated;
-  this.setUserEvents(arr);
-  return true;
+  return this.dataStore.events.updateEvent(updated.id, updated);
 },
 
 deleteUserEventById(id) {
-  const arr = this.getUserEvents();
-  const next = arr.filter((e) => e && e.id !== id);
-  this.setUserEvents(next);
-  return next.length !== arr.length;
+  return this.dataStore.events.deleteEvent(id);
 },
 
  closeOverlay() {
