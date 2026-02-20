@@ -303,6 +303,9 @@ body.controls-locked #copyHelperOverlay {
 
   <button id="addEventBtn" type="button">Lägg till händelse</button>
 
+  <button id="exportEventsBtn" type="button">Exportera händelser</button>
+  <button id="importEventsBtn" type="button">Importera händelser</button>
+
   <button id="toggleOverviewBtn" type="button">
     Visa översikt
   </button>
@@ -883,8 +886,14 @@ const App = {
     overlayTitle: null,
     overlayText: null,
     closeBtn: null,
+
     printBtn: null,
     copyBtn: null,
+    addEventBtn: null,
+
+    exportEventsBtn: null,
+    importEventsBtn: null,
+
     openSound: null,
     yearSelect: null,
     toggleOverviewBtn: null,
@@ -904,6 +913,10 @@ cacheDom() {
   this.dom.printBtn = document.getElementById("printBirthdaysBtn");
   this.dom.copyBtn = document.getElementById("copyBirthdaysBtn");
   this.dom.addEventBtn = document.getElementById("addEventBtn");
+
+  this.dom.exportEventsBtn = document.getElementById("exportEventsBtn");
+  this.dom.importEventsBtn = document.getElementById("importEventsBtn");
+
   this.dom.openSound = document.getElementById("openSound");
   this.dom.yearSelect = document.getElementById("yearSelect");
   this.dom.toggleOverviewBtn = document.getElementById("toggleOverviewBtn");
@@ -927,22 +940,28 @@ cacheDom() {
 },
 
     lockTopControls() {
-    document.body.classList.add("controls-locked");
-    if (this.dom.yearSelect) this.dom.yearSelect.disabled = true;
-    if (this.dom.printBtn) this.dom.printBtn.disabled = true;
-    if (this.dom.copyBtn) this.dom.copyBtn.disabled = true;
-    if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = true;
-    if (this.dom.addEventBtn) this.dom.addEventBtn.disabled = true; // <-- viktiga
-  },
+  document.body.classList.add("controls-locked");
+  if (this.dom.yearSelect) this.dom.yearSelect.disabled = true;
+  if (this.dom.printBtn) this.dom.printBtn.disabled = true;
+  if (this.dom.copyBtn) this.dom.copyBtn.disabled = true;
+  if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = true;
+  if (this.dom.addEventBtn) this.dom.addEventBtn.disabled = true;
+
+  if (this.dom.exportEventsBtn) this.dom.exportEventsBtn.disabled = true;
+  if (this.dom.importEventsBtn) this.dom.importEventsBtn.disabled = true;
+},
 
   unlockTopControls() {
-    document.body.classList.remove("controls-locked");
-    if (this.dom.yearSelect) this.dom.yearSelect.disabled = false;
-    if (this.dom.printBtn) this.dom.printBtn.disabled = false;
-    if (this.dom.copyBtn) this.dom.copyBtn.disabled = false;
-    if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = false;
-    if (this.dom.addEventBtn) this.dom.addEventBtn.disabled = false; // <-- viktiga
-  },
+  document.body.classList.remove("controls-locked");
+  if (this.dom.yearSelect) this.dom.yearSelect.disabled = false;
+  if (this.dom.printBtn) this.dom.printBtn.disabled = false;
+  if (this.dom.copyBtn) this.dom.copyBtn.disabled = false;
+  if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = false;
+  if (this.dom.addEventBtn) this.dom.addEventBtn.disabled = false;
+
+  if (this.dom.exportEventsBtn) this.dom.exportEventsBtn.disabled = false;
+  if (this.dom.importEventsBtn) this.dom.importEventsBtn.disabled = false;
+},
 
   calculateAge(birthYear) {
     const y = Number.isFinite(this.selectedYear) ? this.selectedYear : this.currentYear;
@@ -1911,6 +1930,129 @@ cacheDom() {
 
   updateSaveEnabled();
 }, 
+openExportEventsOverlay() {
+  const { overlay, overlayTitle, overlayText } = this.dom;
+  if (!overlay || !overlayTitle || !overlayText) return;
+
+  this.lockTopControls();
+
+  const data = this.getUserEvents();
+  const json = JSON.stringify(data, null, 2);
+
+  overlay.classList.remove("hidden");
+  overlayTitle.textContent = "Exportera händelser";
+
+  overlayText.innerHTML = `
+    <div class="event-form" style="margin-top:0;">
+      <div class="event-field">
+        <label for="exportJson">Kopiera JSON</label>
+        <textarea id="exportJson" rows="10" style="width:100%">${json}</textarea>
+      </div>
+
+      <div class="event-actions">
+        <button type="button" id="exportCloseBtn">Stäng</button>
+      </div>
+    </div>
+  `;
+
+  const ta = document.getElementById("exportJson");
+  if (ta) {
+    ta.focus();
+    ta.select();
+  }
+
+  const closeBtn = document.getElementById("exportCloseBtn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      this.closeOverlay();
+    });
+  }
+},
+
+openImportEventsOverlay() {
+  const { overlay, overlayTitle, overlayText } = this.dom;
+  if (!overlay || !overlayTitle || !overlayText) return;
+
+  this.lockTopControls();
+
+  overlay.classList.remove("hidden");
+  overlayTitle.textContent = "Importera händelser";
+
+  overlayText.innerHTML = `
+    <form id="importEventsForm" class="event-form">
+      <div class="event-field">
+        <label for="importJson">Klistra in JSON</label>
+        <textarea id="importJson" rows="10" style="width:100%" placeholder='[{"id":"ev_...","title":"...","date":"YYYY-MM-DD",...}]'></textarea>
+      </div>
+
+      <div class="event-actions">
+        <button type="button" id="importCancelBtn">Avbryt</button>
+        <button type="submit" id="importSaveBtn">Importera</button>
+      </div>
+    </form>
+  `;
+
+  const cancelBtn = document.getElementById("importCancelBtn");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      this.closeOverlay();
+    });
+  }
+
+  const form = document.getElementById("importEventsForm");
+  const input = document.getElementById("importJson");
+
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const raw = (input?.value || "").trim();
+      if (!raw) return;
+
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        alert("Ogiltig JSON. Kontrollera att du klistrat in korrekt format.");
+        return;
+      }
+
+      if (!Array.isArray(parsed)) {
+        alert("JSON måste vara en lista (array) av händelser.");
+        return;
+      }
+
+      // Enkel validering + normalisering
+      const cleaned = parsed
+        .filter((ev) => ev && typeof ev === "object")
+        .map((ev) => ({
+          id: String(ev.id || `ev_${Date.now()}`),
+          title: String(ev.title || "").trim(),
+          date: String(ev.date || "").trim(),
+          time: String(ev.time || "").trim(),
+          place: String(ev.place || "").trim(),
+          desc: String(ev.desc || "").trim(),
+          createdBy: String(ev.createdBy || "").trim(),
+          icon: String(ev.icon || "🗓️").trim() === "🎉" ? "🎉" : "🗓️"
+        }))
+        .filter((ev) => ev.title && ev.date && ev.createdBy);
+
+      if (cleaned.length === 0) {
+        alert("Inget att importera. Kontrollera att varje post har title, date och createdBy.");
+        return;
+      }
+
+      // Slå ihop med befintliga (dedupe sker i getUserEvents)
+      const current = this.getUserEvents();
+      const merged = [...current, ...cleaned];
+      this.setUserEvents(merged);
+
+      this.renderMonthsFromEvents();
+      this.closeOverlay();
+      alert(`Importerade ${cleaned.length} händelser.`);
+    });
+  }
+},
 getUserEvents() {
   const key = "arshjul_user_events_v1";
 
@@ -2066,7 +2208,9 @@ deleteUserEventById(id) {
     overlay,
     printBtn,
     copyBtn,
-    addEventBtn
+    addEventBtn,
+    exportEventsBtn,
+    importEventsBtn
   } = this.dom;
 
   if (toggleOverviewBtn) {
@@ -2091,15 +2235,15 @@ deleteUserEventById(id) {
     });
   }
 
- if (overlay) {
-  overlay.addEventListener(
-    "click",
-    (event) => {
-      this.handleOverlayClick(event);
-    },
-    true // capture: stoppar click-through säkrare
-  );
-}
+  if (overlay) {
+    overlay.addEventListener(
+      "click",
+      (event) => {
+        this.handleOverlayClick(event);
+      },
+      true // capture: stoppar click-through säkrare
+    );
+  }
 
   document.addEventListener("keydown", (event) => {
     this.handleKeydown(event);
@@ -2114,18 +2258,17 @@ deleteUserEventById(id) {
   });
 
   if (printBtn) {
-  printBtn.addEventListener("click", () => {
-    if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
-    this.printBirthdaysOnly();
-  });
-}
+    printBtn.addEventListener("click", () => {
+      if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
+      this.printBirthdaysOnly();
+    });
+  }
 
   if (copyBtn) {
-  copyBtn.addEventListener("click", async () => {
-    if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
+    copyBtn.addEventListener("click", async () => {
+      if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
 
-    try {
-
+      try {
         const text = this.buildBirthdaysText();
         const ok = await this.copyBirthdaysToClipboard();
 
@@ -2135,6 +2278,20 @@ deleteUserEventById(id) {
       } catch (e) {
         console.error("Fel vid kopiering av födelsedagslista:", e);
       }
+    });
+  }
+
+  if (exportEventsBtn) {
+    exportEventsBtn.addEventListener("click", () => {
+      if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
+      this.openExportEventsOverlay();
+    });
+  }
+
+  if (importEventsBtn) {
+    importEventsBtn.addEventListener("click", () => {
+      if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
+      this.openImportEventsOverlay();
     });
   }
 },
