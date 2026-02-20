@@ -1195,53 +1195,102 @@ cacheDom() {
 },
 
   buildOverview() {
-    const overviewGrid = this.dom.overviewGrid;
-    if (!overviewGrid) return;
+  const overviewGrid = this.dom.overviewGrid;
+  if (!overviewGrid) return;
 
-    overviewGrid.innerHTML = "";
+  overviewGrid.innerHTML = "";
 
-    const byMonth = new Map();
-    this.monthOrder.forEach((m) => byMonth.set(m, []));
+  const byMonth = new Map();
+  this.monthOrder.forEach((m) => byMonth.set(m, []));
 
-    this.events.forEach((ev) => {
-      if (!ev || !ev.month) return;
-      const monthKey = String(ev.month).toLowerCase().trim();
-      if (!byMonth.has(monthKey)) return;
-      byMonth.get(monthKey).push(ev);
+  // 1) Bas: födelsedagar (this.events)
+  const baseEvents = Array.isArray(this.events) ? this.events : [];
+
+  // 2) User events från localStorage -> mappa date -> month/day
+  const userRaw = this.getUserEvents();
+  const userEvents = userRaw
+    .map((ev) => {
+      if (!ev || !ev.date) return null;
+
+      const parts = String(ev.date).split("-");
+      if (parts.length !== 3) return null;
+
+      const y = Number(parts[0]);
+      const m = Number(parts[1]); // 1-12
+      const d = Number(parts[2]); // 1-31
+      if (!y || !m || !d) return null;
+
+      const monthName = this.monthNames?.[m - 1];
+      if (!monthName) return null;
+
+      return {
+        ...ev,
+        type: "event",
+        icon: ev.icon || "🗓️",
+        year: y,
+        month: monthName,
+        day: d,
+        name: ev.title || "Händelse",
+        text:
+          (ev.time ? `${ev.time} ` : "") +
+          (ev.place ? `${ev.place} ` : "") +
+          (ev.desc ? `${ev.desc}` : ""),
+        createdBy: ev.createdBy || ""
+      };
+    })
+    .filter(Boolean);
+
+  const allEvents = [...baseEvents, ...userEvents];
+
+  // Lägg in i byMonth
+  allEvents.forEach((ev) => {
+    if (!ev || !ev.month) return;
+    const monthKey = String(ev.month).toLowerCase().trim();
+    if (!byMonth.has(monthKey)) return;
+    byMonth.get(monthKey).push(ev);
+  });
+
+  this.monthOrder.forEach((monthKey) => {
+    const monthEvents = byMonth.get(monthKey) || [];
+    if (monthEvents.length === 0) return;
+
+    // Sort: day, och om samma dag: birthday före event
+    monthEvents.sort((a, b) => {
+      const da = a.day || 0;
+      const db = b.day || 0;
+      if (da !== db) return da - db;
+
+      const pa = a.type === "birthday" ? 0 : 1;
+      const pb = b.type === "birthday" ? 0 : 1;
+      return pa - pb;
     });
 
-    this.monthOrder.forEach((monthKey) => {
-      const monthEvents = byMonth.get(monthKey) || [];
-      if (monthEvents.length === 0) return;
+    const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
 
-      monthEvents.sort((a, b) => (a.day || 0) - (b.day || 0));
+    const monthDiv = document.createElement("div");
+    monthDiv.className = "overview-month";
 
-      const monthTitle = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
+    const h2 = document.createElement("h2");
+    h2.textContent = monthTitle;
 
-      const monthDiv = document.createElement("div");
-      monthDiv.className = "overview-month";
+    const ul = document.createElement("ul");
 
-      const h2 = document.createElement("h2");
-      h2.textContent = monthTitle;
-
-      const ul = document.createElement("ul");
-
-      monthEvents.forEach((ev) => {
-        const li = document.createElement("li");
-        const btn = this.createDayItemButton(ev);
-        li.appendChild(btn);
-        ul.appendChild(li);
-      });
-
-      if (ul.children.length === 0) return;
-
-      monthDiv.appendChild(h2);
-      monthDiv.appendChild(ul);
-      overviewGrid.appendChild(monthDiv);
+    monthEvents.forEach((ev) => {
+      const li = document.createElement("li");
+      const btn = this.createDayItemButton(ev);
+      li.appendChild(btn);
+      ul.appendChild(li);
     });
 
-    this.updateAllAges();
-  },
+    if (ul.children.length === 0) return;
+
+    monthDiv.appendChild(h2);
+    monthDiv.appendChild(ul);
+    overviewGrid.appendChild(monthDiv);
+  });
+
+  this.updateAllAges();
+},
 
   async copyBirthdaysToClipboard() {
     const text = this.buildBirthdaysText();
