@@ -66,7 +66,7 @@ Projektet är i fas 1: Stabil HTML-version med overlay, åldersberäkning och pr
 - Mobilvy är läsbar  
 Mål: Stabil fungerande produkt utan backend.
 - **Printstrategi (Safari-stabil):** Print bygger en separat ren text-vy i `#printMeta` + `#printWrap` via `beforeprint` och döljer `#months` i print. Två kolumner: Jan–Jun vänster, Jul–Dec höger. Visar “År: …”.
-
+Gjort
 
 ### FAS 2 – Struktur & förberedelse för andra användare
 - Separera JS i egen fil
@@ -79,6 +79,7 @@ Mål: Göra projektet generiskt.
 - Publicera via GitHub Pages
 - Säkerställa mobilåtkomst via länk
 - Testa iPhone + Samsung
+Krav: index.html i repo-root + GitHub Pages aktiverat + live-test
 
 ### FAS 4 – PWA
 - manifest.json
