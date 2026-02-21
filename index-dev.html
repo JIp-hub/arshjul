@@ -24,7 +24,8 @@
   }
 
   .controls button,
-  .controls select {
+  .controls select,
+  .controls input {
     font: inherit;
   }
 /* När overlay är öppen: inga klick på toppkontroller */
@@ -34,6 +35,7 @@ body.controls-locked .controls {
 
 body.controls-locked .controls button,
 body.controls-locked .controls select,
+body.controls-locked .controls input,
 body.controls-locked .controls label {
   opacity: 0.5;
 }
@@ -312,6 +314,10 @@ body.controls-locked #copyHelperOverlay {
 
   <label class="year-control" for="yearSelect">År:</label>
   <select id="yearSelect" class="year-control" aria-label="Välj år"></select>
+
+  <label for="familyCodeInput">Familj:</label>
+  <input id="familyCodeInput" type="text" value="default" size="10" aria-label="Familjekod">
+  <button id="setFamilyCodeBtn" type="button">Byt familj</button>
 </div>
 
 <!-- Print-only (byggs av JS precis innan utskrift) -->
@@ -815,6 +821,9 @@ const App = {
   currentYear: new Date().getFullYear(),
   selectedYear: null,
   _isPreparingPrint: false,
+  familyCodeStorageKey: "arshjul_family_code_v1",
+  defaultFamilyCode: "default",
+  currentFamilyCode: "default",
 
     monthOrder: [
     "januari",
@@ -893,6 +902,8 @@ const App = {
 
     exportEventsBtn: null,
     importEventsBtn: null,
+    familyCodeInput: null,
+    setFamilyCodeBtn: null,
 
     openSound: null,
     yearSelect: null,
@@ -905,11 +916,19 @@ const App = {
   /* ===== DATASTORE (EVENTS) ===== */
   dataStore: {
     events: {
-      key: "arshjul_user_events_v1",
+      baseKey: "arshjul_user_events_v1",
+
+      getKey() {
+        const familyCode =
+          typeof App.getCurrentFamilyCode === "function"
+            ? App.getCurrentFamilyCode()
+            : "default";
+        return `${this.baseKey}::${familyCode}`;
+      },
 
       _writeEvents(events) {
         try {
-          localStorage.setItem(this.key, JSON.stringify(events));
+          localStorage.setItem(this.getKey(), JSON.stringify(events));
         } catch {
           // ignorera (t.ex. om storage är blockerat)
         }
@@ -943,7 +962,7 @@ const App = {
         };
 
         try {
-          const raw = localStorage.getItem(this.key);
+          const raw = localStorage.getItem(this.getKey());
           const parsed = raw ? JSON.parse(raw) : [];
           const arr = Array.isArray(parsed) ? parsed : [];
 
@@ -1018,6 +1037,48 @@ const App = {
   /* ==========================
      2. FUNCTIONS
   ========================= */
+sanitizeFamilyCode(rawCode) {
+  const code = String(rawCode || "").trim();
+  return code || this.defaultFamilyCode;
+},
+
+getCurrentFamilyCode() {
+  return this.sanitizeFamilyCode(this.currentFamilyCode);
+},
+
+loadFamilyCode() {
+  let stored = this.defaultFamilyCode;
+  try {
+    stored = localStorage.getItem(this.familyCodeStorageKey) || this.defaultFamilyCode;
+  } catch {
+    stored = this.defaultFamilyCode;
+  }
+
+  this.currentFamilyCode = this.sanitizeFamilyCode(stored);
+  return this.currentFamilyCode;
+},
+
+setFamilyCode(nextCode) {
+  const normalized = this.sanitizeFamilyCode(nextCode);
+  this.currentFamilyCode = normalized;
+
+  try {
+    localStorage.setItem(this.familyCodeStorageKey, normalized);
+  } catch {
+    // ignorera
+  }
+
+  if (this.dom.familyCodeInput) {
+    this.dom.familyCodeInput.value = normalized;
+  }
+
+  this.renderMonthsFromEvents();
+  this.updateAllAges();
+  if (document.body.classList.contains("overview-mode")) {
+    this.buildOverview();
+  }
+},
+
 cacheDom() {
   this.dom.overlay = document.getElementById("overlay");
   this.dom.overlayTitle = document.getElementById("overlayTitle");
@@ -1029,6 +1090,8 @@ cacheDom() {
 
   this.dom.exportEventsBtn = document.getElementById("exportEventsBtn");
   this.dom.importEventsBtn = document.getElementById("importEventsBtn");
+  this.dom.familyCodeInput = document.getElementById("familyCodeInput");
+  this.dom.setFamilyCodeBtn = document.getElementById("setFamilyCodeBtn");
 
   this.dom.openSound = document.getElementById("openSound");
   this.dom.yearSelect = document.getElementById("yearSelect");
@@ -1062,6 +1125,8 @@ cacheDom() {
 
   if (this.dom.exportEventsBtn) this.dom.exportEventsBtn.disabled = true;
   if (this.dom.importEventsBtn) this.dom.importEventsBtn.disabled = true;
+  if (this.dom.familyCodeInput) this.dom.familyCodeInput.disabled = true;
+  if (this.dom.setFamilyCodeBtn) this.dom.setFamilyCodeBtn.disabled = true;
 },
 
  unlockTopControls() {
@@ -1074,6 +1139,8 @@ cacheDom() {
 
   if (this.dom.exportEventsBtn) this.dom.exportEventsBtn.disabled = false;
   if (this.dom.importEventsBtn) this.dom.importEventsBtn.disabled = false;
+  if (this.dom.familyCodeInput) this.dom.familyCodeInput.disabled = false;
+  if (this.dom.setFamilyCodeBtn) this.dom.setFamilyCodeBtn.disabled = false;
 },
 
   calculateAge(birthYear) {
@@ -2289,7 +2356,9 @@ deleteUserEventById(id) {
     copyBtn,
     addEventBtn,
     exportEventsBtn,
-    importEventsBtn
+    importEventsBtn,
+    familyCodeInput,
+    setFamilyCodeBtn
   } = this.dom;
 
   if (toggleOverviewBtn) {
@@ -2373,11 +2442,31 @@ deleteUserEventById(id) {
       this.openImportEventsOverlay();
     });
   }
+
+  if (setFamilyCodeBtn) {
+    setFamilyCodeBtn.addEventListener("click", () => {
+      this.setFamilyCode(familyCodeInput?.value || this.defaultFamilyCode);
+    });
+  }
+
+  if (familyCodeInput) {
+    familyCodeInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        this.setFamilyCode(familyCodeInput.value);
+      }
+    });
+  }
 },
 
   init() {
     this.selectedYear = this.currentYear;
+    this.loadFamilyCode();
     this.cacheDom();
+
+    if (this.dom.familyCodeInput) {
+      this.dom.familyCodeInput.value = this.getCurrentFamilyCode();
+    }
 
     this.renderMonthsFromEvents();
 
