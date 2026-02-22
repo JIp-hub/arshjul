@@ -818,6 +818,19 @@ cacheDom() {
   if (this.dom.importBirthdaysBtn) this.dom.importBirthdaysBtn.disabled = false;
 },
 
+exitAdminMode() {
+  localStorage.removeItem(this.adminModeStorageKey);
+  document.body.classList.remove("admin-mode");
+
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("admin");
+    history.replaceState({}, "", url.toString());
+  } catch {
+    // ignore URL parse/history errors
+  }
+},
+
   calculateAge(birthYear) {
     const y = Number.isFinite(this.selectedYear) ? this.selectedYear : this.currentYear;
     return y - birthYear;
