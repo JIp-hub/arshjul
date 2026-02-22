@@ -315,8 +315,14 @@ body.controls-locked #copyHelperOverlay {
 
   <button id="exportEventsBtn" type="button">Exportera händelser</button>
   <button id="importEventsBtn" type="button">Importera händelser</button>
-  <button id="exportBirthdaysBtn" type="button">Exportera födelsedagar</button>
-  <button id="importBirthdaysBtn" type="button">Importera födelsedagar</button>
+  <button id="exportBirthdaysBtn" type="button"
+          class="btn btn-secondary admin-only"
+          onclick="exportBirthdays()">Exportera födelsedagar</button>
+
+  <button id="importBirthdaysBtn" type="button"
+          class="btn btn-secondary admin-only"
+          data-toggle="modal"
+          data-target="#importBirthdaysModal">Importera födelsedagar</button>
   <button id="exitAdminBtn" class="admin-only" type="button">Avsluta admin</button>
 
   <button id="toggleOverviewBtn" type="button">
