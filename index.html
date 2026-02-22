@@ -413,6 +413,7 @@ const App = {
   selectedYear: null,
   _isPreparingPrint: false,
   familyCodeStorageKey: "arshjul_family_code_v1",
+  adminModeStorageKey: "arshjul_admin_mode_v1",
   defaultFamilyCode: "default",
   currentFamilyCode: "default",
 
@@ -816,6 +817,19 @@ cacheDom() {
   if (this.dom.setFamilyCodeBtn) this.dom.setFamilyCodeBtn.disabled = false;
   if (this.dom.exportBirthdaysBtn) this.dom.exportBirthdaysBtn.disabled = false;
   if (this.dom.importBirthdaysBtn) this.dom.importBirthdaysBtn.disabled = false;
+},
+
+exitAdminMode() {
+  localStorage.removeItem(this.adminModeStorageKey);
+  document.body.classList.remove("admin-mode");
+
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("admin");
+    history.replaceState({}, "", url.toString());
+  } catch {
+    // ignore URL parse/history errors
+  }
 },
 
   calculateAge(birthYear) {
