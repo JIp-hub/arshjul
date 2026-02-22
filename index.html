@@ -28,6 +28,14 @@
   .controls input {
     font: inherit;
   }
+
+  .admin-only {
+    display: none;
+  }
+
+  body.admin-mode .admin-only {
+    display: inline-block;
+  }
 /* När overlay är öppen: inga klick på toppkontroller */
 body.controls-locked .controls {
   pointer-events: none;
@@ -309,6 +317,7 @@ body.controls-locked #copyHelperOverlay {
   <button id="importEventsBtn" type="button">Importera händelser</button>
   <button id="exportBirthdaysBtn" type="button">Exportera födelsedagar</button>
   <button id="importBirthdaysBtn" type="button">Importera födelsedagar</button>
+  <button id="exitAdminBtn" class="admin-only" type="button">Avsluta admin</button>
 
   <button id="toggleOverviewBtn" type="button">
     Visa översikt
@@ -489,6 +498,7 @@ const App = {
     importEventsBtn: null,
     exportBirthdaysBtn: null,
     importBirthdaysBtn: null,
+    exitAdminBtn: null,
     familyCodeInput: null,
     setFamilyCodeBtn: null,
 
@@ -762,6 +772,7 @@ cacheDom() {
   this.dom.importEventsBtn = document.getElementById("importEventsBtn");
   this.dom.exportBirthdaysBtn = document.getElementById("exportBirthdaysBtn");
   this.dom.importBirthdaysBtn = document.getElementById("importBirthdaysBtn");
+  this.dom.exitAdminBtn = document.getElementById("exitAdminBtn");
   this.dom.familyCodeInput = document.getElementById("familyCodeInput");
   this.dom.setFamilyCodeBtn = document.getElementById("setFamilyCodeBtn");
 
@@ -830,6 +841,43 @@ exitAdminMode() {
   } catch {
     // ignore URL parse/history errors
   }
+},
+
+applyAdminMode() {
+  let hasAdminParam = false;
+  let hasPersistedAdmin = false;
+
+  try {
+    const url = new URL(window.location.href);
+    const adminParam = (url.searchParams.get("admin") || "").toLowerCase();
+    hasAdminParam = adminParam === "1" || adminParam === "true";
+  } catch {
+    hasAdminParam = false;
+  }
+
+  try {
+    hasPersistedAdmin = !!localStorage.getItem(this.adminModeStorageKey);
+  } catch {
+    hasPersistedAdmin = false;
+  }
+
+  const shouldEnableAdminMode = hasAdminParam || hasPersistedAdmin;
+
+  if (shouldEnableAdminMode) {
+    document.body.classList.add("admin-mode");
+
+    if (hasAdminParam) {
+      try {
+        localStorage.setItem(this.adminModeStorageKey, "1");
+      } catch {
+        // ignore
+      }
+    }
+
+    return;
+  }
+
+  document.body.classList.remove("admin-mode");
 },
 
   calculateAge(birthYear) {
@@ -2036,6 +2084,7 @@ deleteUserEventById(id) {
     importEventsBtn,
     exportBirthdaysBtn,
     importBirthdaysBtn,
+    exitAdminBtn,
     familyCodeInput,
     setFamilyCodeBtn
   } = this.dom;
@@ -2136,6 +2185,12 @@ deleteUserEventById(id) {
     });
   }
 
+  if (exitAdminBtn) {
+    exitAdminBtn.addEventListener("click", () => {
+      this.exitAdminMode();
+    });
+  }
+
   if (setFamilyCodeBtn) {
     setFamilyCodeBtn.addEventListener("click", () => {
       this.setFamilyCode(familyCodeInput?.value || this.defaultFamilyCode);
@@ -2156,6 +2211,7 @@ deleteUserEventById(id) {
     this.selectedYear = this.currentYear;
     this.loadFamilyCode();
     this.cacheDom();
+    this.applyAdminMode();
 
     if (this.dom.familyCodeInput) {
       this.dom.familyCodeInput.value = this.getCurrentFamilyCode();
