@@ -315,8 +315,8 @@ body.controls-locked #copyHelperOverlay {
 
   <button id="exportEventsBtn" type="button">Exportera händelser</button>
   <button id="importEventsBtn" type="button">Importera händelser</button>
-  <button id="exportBirthdaysBtn" type="button">Exportera födelsedagar</button>
-  <button id="importBirthdaysBtn" type="button">Importera födelsedagar</button>
+  <button id="exportBirthdaysBtn" class="admin-only" type="button">Exportera födelsedagar</button>
+  <button id="importBirthdaysBtn" class="admin-only" type="button">Importera födelsedagar</button>
   <button id="exitAdminBtn" class="admin-only" type="button">Avsluta admin</button>
 
   <button id="toggleOverviewBtn" type="button">
@@ -326,9 +326,9 @@ body.controls-locked #copyHelperOverlay {
   <label class="year-control" for="yearSelect">År:</label>
   <select id="yearSelect" class="year-control" aria-label="Välj år"></select>
 
-  <label for="familyCodeInput">Familj:</label>
-  <input id="familyCodeInput" type="text" value="default" size="10" aria-label="Familjekod">
-  <button id="setFamilyCodeBtn" type="button">Byt familj</button>
+  <label class="admin-only" for="familyCodeInput">Familj:</label>
+  <input class="admin-only" id="familyCodeInput" type="text" value="default" size="10" aria-label="Familjekod">
+  <button class="admin-only" id="setFamilyCodeBtn" type="button">Byt familj</button>
 </div>
 
 <!-- Print-only (byggs av JS precis innan utskrift) -->
@@ -520,7 +520,9 @@ const App = {
           typeof App.getCurrentFamilyCode === "function"
             ? App.getCurrentFamilyCode()
             : "default";
-        return `${this.baseKey}::${familyCode}`;
+
+        const safe = String(familyCode ?? "").trim() || "default";
+        return `${this.baseKey}::${safe}`;
       },
 
       _writeEvents(events) {
@@ -638,7 +640,9 @@ const App = {
           typeof App.getCurrentFamilyCode === "function"
             ? App.getCurrentFamilyCode()
             : "default";
-        return `${this.baseKey}::${familyCode}`;
+
+        const safe = String(familyCode ?? "").trim() || "default";
+        return `${this.baseKey}::${safe}`;
       },
 
       _normalizeBirthday(entry) {
@@ -831,7 +835,12 @@ cacheDom() {
 },
 
 exitAdminMode() {
-  localStorage.removeItem(this.adminModeStorageKey);
+  try {
+    localStorage.removeItem(this.adminModeStorageKey);
+  } catch {
+    // ignorera om storage är blockerat
+  }
+
   document.body.classList.remove("admin-mode");
 
   try {
