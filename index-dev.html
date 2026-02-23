@@ -520,7 +520,9 @@ const App = {
           typeof App.getCurrentFamilyCode === "function"
             ? App.getCurrentFamilyCode()
             : "default";
-        return `${this.baseKey}::${familyCode}`;
+
+        const safe = String(familyCode ?? "").trim() || "default";
+        return `${this.baseKey}::${safe}`;
       },
 
       _writeEvents(events) {
@@ -638,7 +640,9 @@ const App = {
           typeof App.getCurrentFamilyCode === "function"
             ? App.getCurrentFamilyCode()
             : "default";
-        return `${this.baseKey}::${familyCode}`;
+
+        const safe = String(familyCode ?? "").trim() || "default";
+        return `${this.baseKey}::${safe}`;
       },
 
       _normalizeBirthday(entry) {
