@@ -532,7 +532,10 @@ const App = {
           // ignorera (t.ex. om storage är blockerat)
         }
       },
-
+replaceEvents(events) {
+  const arr = Array.isArray(events) ? events : [];
+  this._writeEvents(arr);
+},
       listEvents() {
         const normText = (s) =>
           String(s ?? "")
@@ -2017,7 +2020,7 @@ getUserEvents() {
 },
 
 setUserEvents(events) {
-  this.dataStore.events._writeEvents(events);
+  this.dataStore.events.replaceEvents(events);
 },
 
 addUserEvent(ev) {
