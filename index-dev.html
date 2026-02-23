@@ -2017,7 +2017,7 @@ getUserEvents() {
 },
 
 setUserEvents(events) {
-  this.dataStore.events._writeEvents(events);
+  this.dataStore.events.replaceEvents(events);
 },
 
 addUserEvent(ev) {
