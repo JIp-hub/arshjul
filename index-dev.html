@@ -525,13 +525,14 @@ const App = {
         return `${this.baseKey}::${safe}`;
       },
 
-      _writeEvents(events) {
+            _writeEvents(events) {
         try {
           localStorage.setItem(this.getKey(), JSON.stringify(events));
         } catch {
           // ignorera (t.ex. om storage är blockerat)
         }
       },
+
 replaceEvents(events) {
   const arr = Array.isArray(events) ? events : [];
   this._writeEvents(arr);
