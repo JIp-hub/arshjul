@@ -518,7 +518,7 @@ const App = {
       getKey() {
         const familyCode =
           typeof App.getCurrentFamilyCode === "function"
-            ? App.getCurrentFamilyCode()
+            ? (App.getCurrentFamilyCode() || "default")
             : "default";
         return `${this.baseKey}::${familyCode}`;
       },
@@ -636,7 +636,7 @@ const App = {
       getKey() {
         const familyCode =
           typeof App.getCurrentFamilyCode === "function"
-            ? App.getCurrentFamilyCode()
+            ? (App.getCurrentFamilyCode() || "default")
             : "default";
         return `${this.baseKey}::${familyCode}`;
       },
@@ -844,40 +844,43 @@ exitAdminMode() {
 },
 
 applyAdminMode() {
-  let hasAdminParam = false;
-  let hasPersistedAdmin = false;
+  let adminParam = false;
+  let persistedAdmin = false;
 
   try {
     const url = new URL(window.location.href);
-    const adminParam = (url.searchParams.get("admin") || "").toLowerCase();
-    hasAdminParam = adminParam === "1" || adminParam === "true";
+    const value = (url.searchParams.get("admin") || "").toLowerCase();
+    adminParam = value === "1" || value === "true";
   } catch {
-    hasAdminParam = false;
+    adminParam = false;
   }
 
   try {
-    hasPersistedAdmin = !!localStorage.getItem(this.adminModeStorageKey);
+    persistedAdmin = !!localStorage.getItem(this.adminModeStorageKey);
   } catch {
-    hasPersistedAdmin = false;
+    persistedAdmin = false;
   }
 
-  const shouldEnableAdminMode = hasAdminParam || hasPersistedAdmin;
+  const shouldEnable = adminParam || persistedAdmin;
 
-  if (shouldEnableAdminMode) {
+  if (shouldEnable) {
     document.body.classList.add("admin-mode");
-
-    if (hasAdminParam) {
+    if (adminParam) {
       try {
         localStorage.setItem(this.adminModeStorageKey, "1");
       } catch {
         // ignore
       }
     }
-
     return;
   }
 
   document.body.classList.remove("admin-mode");
+  try {
+    localStorage.removeItem(this.adminModeStorageKey);
+  } catch {
+    // ignore
+  }
 },
 
   calculateAge(birthYear) {
