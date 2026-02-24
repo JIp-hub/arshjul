@@ -839,16 +839,6 @@ cacheDom() {
 },
 
 exitAdminMode() {
-  const prefs = App?.dataStore?.prefs;
-
-  try {
-    if (typeof prefs?.remove === "function") {
-      prefs.remove(this.adminModeStorageKey);
-    } else {
-      prefs?.setString?.(this.adminModeStorageKey, "");
-    }
-  } catch {}
-
   document.body.classList.remove("admin-mode");
 
   try {
@@ -873,11 +863,6 @@ applyAdminMode() {
   }
 
   document.body.classList.add("admin-mode");
-
-  const prefs = App?.dataStore?.prefs;
-  try {
-    prefs?.setString?.(this.adminModeStorageKey, "1");
-  } catch {}
 },
 
   calculateAge(birthYear) {
