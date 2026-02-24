@@ -1372,28 +1372,6 @@ applyAdminMode() {
 
     printMeta.textContent = `År: ${this.selectedYear}`;
     printWrap.innerHTML = "";
-    // Print: styles för fasta kolumner (endast för printlistan)
-    if (!document.getElementById("printBirthdayRowStyles")) {
-      const style = document.createElement("style");
-      style.id = "printBirthdayRowStyles";
-      style.textContent = `
-        .print-row {
-          display: grid;
-          grid-template-columns: 2ch 2ch 1fr;
-          column-gap: 0.6ch;
-          align-items: baseline;
-        }
-        .print-row .print-day {
-          text-align: right;
-          font-variant-numeric: tabular-nums;
-        }
-        .print-row .print-icon {
-          text-align: center;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
     const colLeft = document.createElement("div");
     colLeft.className = "print-col print-col-left";
 
