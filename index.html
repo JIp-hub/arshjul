@@ -1693,9 +1693,10 @@ applyAdminMode() {
 
   const SIGN_KEY = "arshjul_last_signature_v1";
   const ICON_KEY = "arshjul_last_event_icon_v1";
+  const prefs = App?.dataStore?.prefs;
 
-  const lastSignature = (localStorage.getItem(SIGN_KEY) || "").trim();
-  const lastIcon = (localStorage.getItem(ICON_KEY) || "🗓️").trim();
+  const lastSignature = (prefs?.getString(SIGN_KEY, "") || "").trim();
+  const lastIcon = (prefs?.getString(ICON_KEY, "🗓️") || "🗓️").trim();
 
   const isEdit = !!(existingEvent && existingEvent.id);
 
@@ -1814,8 +1815,8 @@ applyAdminMode() {
 
       // Kom ihåg senaste val
       try {
-        localStorage.setItem(SIGN_KEY, createdBy);
-        localStorage.setItem(ICON_KEY, icon === "🎉" ? "🎉" : "🗓️");
+        prefs?.setString(SIGN_KEY, createdBy);
+        prefs?.setString(ICON_KEY, icon === "🎉" ? "🎉" : "🗓️");
       } catch {}
 
       const editId = (form.dataset.editId || "").trim();
