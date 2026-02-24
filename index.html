@@ -839,11 +839,15 @@ cacheDom() {
 },
 
 exitAdminMode() {
+  const prefs = App?.dataStore?.prefs;
+
   try {
-    localStorage.removeItem(this.adminModeStorageKey);
-  } catch {
-    // ignorera om storage är blockerat
-  }
+    if (typeof prefs?.remove === "function") {
+      prefs.remove(this.adminModeStorageKey);
+    } else {
+      prefs?.setString?.(this.adminModeStorageKey, "");
+    }
+  } catch {}
 
   document.body.classList.remove("admin-mode");
 
@@ -851,46 +855,29 @@ exitAdminMode() {
     const url = new URL(window.location.href);
     url.searchParams.delete("admin");
     history.replaceState({}, "", url.toString());
-  } catch {
-    // ignore URL parse/history errors
-  }
+  } catch {}
 },
 
 applyAdminMode() {
-  let hasAdminParam = false;
-  let hasPersistedAdmin = false;
-
+  let isAdminFromUrl = false;
   try {
-    const url = new URL(window.location.href);
-    const adminParam = (url.searchParams.get("admin") || "").toLowerCase();
-    hasAdminParam = adminParam === "1" || adminParam === "true";
+    const params = new URLSearchParams(window.location.search);
+    isAdminFromUrl = params.get("admin") === "1";
   } catch {
-    hasAdminParam = false;
+    isAdminFromUrl = false;
   }
 
-  try {
-    hasPersistedAdmin = !!localStorage.getItem(this.adminModeStorageKey);
-  } catch {
-    hasPersistedAdmin = false;
-  }
-
-  const shouldEnableAdminMode = hasAdminParam || hasPersistedAdmin;
-
-  if (shouldEnableAdminMode) {
-    document.body.classList.add("admin-mode");
-
-    if (hasAdminParam) {
-      try {
-        localStorage.setItem(this.adminModeStorageKey, "1");
-      } catch {
-        // ignore
-      }
-    }
-
+  if (!isAdminFromUrl) {
+    document.body.classList.remove("admin-mode");
     return;
   }
 
-  document.body.classList.remove("admin-mode");
+  document.body.classList.add("admin-mode");
+
+  const prefs = App?.dataStore?.prefs;
+  try {
+    prefs?.setString?.(this.adminModeStorageKey, "1");
+  } catch {}
 },
 
   calculateAge(birthYear) {
