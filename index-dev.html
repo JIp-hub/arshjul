@@ -2026,35 +2026,7 @@ setUserEvents(events) {
 },
 
 addUserEvent(ev) {
-  const norm = (s) => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
-  const normDate = (s) => String(s || "").trim().replace(/\s+/g, "");
-
-  const current = this.getUserEvents();
-
-  const sig = [
-    normDate(ev.date),
-    norm(ev.title),
-    norm(ev.time),
-    norm(ev.place),
-    norm(ev.desc),
-    norm(ev.createdBy)
-  ].join("|");
-
-  const exists = current.some((x) => {
-    const sigX = [
-      normDate(x.date),
-      norm(x.title),
-      norm(x.time),
-      norm(x.place),
-      norm(x.desc),
-      norm(x.createdBy)
-    ].join("|");
-    return sigX === sig;
-  });
-
-  if (exists) return; // redan sparad
-
-  this.dataStore.events.createEvent(ev);
+  return this.dataStore.events.createEvent(ev);
 },
 
 getUserEventById(id) {
