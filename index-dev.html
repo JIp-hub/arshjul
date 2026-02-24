@@ -2158,8 +2158,9 @@ deleteUserEventById(id) {
     copyBtn.addEventListener("click", async () => {
       if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
 
+      let text = "";
       try {
-        const text = this.buildBirthdaysText();
+        text = this.buildBirthdaysText();
         const ok = await this.copyBirthdaysToClipboard();
 
         if (!ok) {
@@ -2167,6 +2168,7 @@ deleteUserEventById(id) {
         }
       } catch (e) {
         console.error("Fel vid kopiering av födelsedagslista:", e);
+        this.showCopyHelper(text);
       }
     });
   }
