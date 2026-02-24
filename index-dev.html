@@ -525,6 +525,27 @@ const App = {
         return `${this.baseKey}::${safe}`;
       },
 
+      _normalizeEvent(event, fallbackId = "") {
+        if (!event || typeof event !== "object") return null;
+
+        const title = String(event.title || "").trim();
+        const date = String(event.date || "").trim();
+        const createdBy = String(event.createdBy || "").trim();
+
+        if (!title || !date || !createdBy) return null;
+
+        return {
+          id: String(event.id || fallbackId || `ev_${Date.now()}`),
+          title,
+          date,
+          time: String(event.time || "").trim(),
+          place: String(event.place || "").trim(),
+          desc: String(event.desc || "").trim(),
+          createdBy,
+          icon: String(event.icon || "🗓️").trim() === "🎉" ? "🎉" : "🗓️"
+        };
+      },
+
             _writeEvents(events) {
         try {
           localStorage.setItem(this.getKey(), JSON.stringify(events));
@@ -633,6 +654,60 @@ replaceEvents(events) {
         const next = arr.filter((ev) => ev && ev.id !== id);
         this._writeEvents(next);
         return next.length !== arr.length;
+      },
+
+      importEvents(list) {
+        const normalized = Array.isArray(list)
+          ? list
+              .map((event, index) => this._normalizeEvent(event, `ev_${Date.now()}_${index}`))
+              .filter(Boolean)
+          : [];
+
+        if (normalized.length === 0) return [];
+
+        const current = this.listEvents();
+
+        const normText = (s) =>
+          String(s ?? "")
+            .replace(/[\u200B-\u200D\uFEFF]/g, "")
+            .trim();
+
+        const toISODate = (s) => {
+          const raw = normText(s).replace(/\s+/g, "");
+          const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+          if (!m) return raw;
+          const yyyy = m[1];
+          const mm = String(m[2]).padStart(2, "0");
+          const dd = String(m[3]).padStart(2, "0");
+          return `${yyyy}-${mm}-${dd}`;
+        };
+
+        const sig = (ev) => {
+          const date = toISODate(ev?.date);
+          const title = normText(ev?.title).toLowerCase().replace(/\s+/g, " ");
+          const time = normText(ev?.time).toLowerCase().replace(/\s+/g, " ");
+          const place = normText(ev?.place).toLowerCase().replace(/\s+/g, " ");
+          const desc = normText(ev?.desc).toLowerCase().replace(/\s+/g, " ");
+          const createdBy = normText(ev?.createdBy).toLowerCase().replace(/\s+/g, " ");
+          return [date, title, time, place, desc, createdBy].join("|");
+        };
+
+        const seen = new Set(current.map((event) => sig(event)));
+        const uniqueIncoming = normalized.filter((event) => {
+          const key = sig(event);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        if (uniqueIncoming.length === 0) return [];
+
+        this._writeEvents([...current, ...uniqueIncoming]);
+        return uniqueIncoming;
+      },
+
+      exportEvents() {
+        return this.listEvents();
       }
     },
 
@@ -1815,7 +1890,7 @@ openExportEventsOverlay() {
 
   this.lockTopControls();
 
-  const data = this.getUserEvents();
+  const data = this.dataStore.events.exportEvents();
   const json = JSON.stringify(data, null, 2);
 
   overlay.classList.remove("hidden");
@@ -1901,34 +1976,19 @@ openImportEventsOverlay() {
         return;
       }
 
-      // Enkel validering + normalisering
-      const cleaned = parsed
-        .filter((ev) => ev && typeof ev === "object")
-        .map((ev) => ({
-          id: String(ev.id || `ev_${Date.now()}`),
-          title: String(ev.title || "").trim(),
-          date: String(ev.date || "").trim(),
-          time: String(ev.time || "").trim(),
-          place: String(ev.place || "").trim(),
-          desc: String(ev.desc || "").trim(),
-          createdBy: String(ev.createdBy || "").trim(),
-          icon: String(ev.icon || "🗓️").trim() === "🎉" ? "🎉" : "🗓️"
-        }))
-        .filter((ev) => ev.title && ev.date && ev.createdBy);
+      const imported = this.dataStore.events.importEvents(parsed);
 
-      if (cleaned.length === 0) {
+      if (imported.length === 0) {
         alert("Inget att importera. Kontrollera att varje post har title, date och createdBy.");
         return;
       }
 
-      // Slå ihop med befintliga (dedupe sker i getUserEvents)
-      const current = this.getUserEvents();
-      const merged = [...current, ...cleaned];
-      this.setUserEvents(merged);
-
       this.renderMonthsFromEvents();
+      if (document.body.classList.contains("overview-mode")) {
+        this.buildOverview();
+      }
       this.closeOverlay();
-      alert(`Importerade ${cleaned.length} händelser.`);
+      alert(`Importerade ${imported.length} händelser.`);
     });
   }
 },
