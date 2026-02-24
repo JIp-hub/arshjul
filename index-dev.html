@@ -1347,14 +1347,13 @@ applyAdminMode() {
 
       monthEvents.forEach((ev) => {
         const day = ev.day != null ? String(ev.day) : "";
+        const paddedDay = day.padStart(2, " ");
         const name = ev.name != null ? String(ev.name) : "";
         if (!day || !name) return;
 
         const age = this.getBirthdayAgeText(ev.year);
         const ageText = age ? ` (${age})` : "";
 
-               const paddedDay = day.padStart(2, " ");
- 
         lines.push(`${paddedDay}\t🎂\t${name}${ageText}`);
       });
 
@@ -1413,6 +1412,7 @@ applyAdminMode() {
 
       monthEvents.forEach((ev) => {
         const day = ev.day != null ? String(ev.day) : "";
+        const paddedDay = day.padStart(2, " ");
         const name = ev.name != null ? String(ev.name) : "";
         if (!day || !name) return;
 
@@ -1427,7 +1427,7 @@ applyAdminMode() {
 
         const daySpan = document.createElement("span");
         daySpan.className = "print-day";
-        daySpan.textContent = day;
+        daySpan.textContent = paddedDay;
 
         const iconSpan = document.createElement("span");
         iconSpan.className = "print-icon";
