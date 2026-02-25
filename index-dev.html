@@ -532,9 +532,9 @@ const App = {
     printWrap: null
   },
 
-  /* ===== DATASTORE (EVENTS) ===== */
+  /* ===== DATASTORE ===== */
   dataStore: {
-    events: {
+    eventStore: {
       baseKey: "arshjul_user_events_v1",
 
       getKey() {
@@ -657,21 +657,23 @@ replaceEvents(events) {
         this._writeEvents(arr);
       },
 
-      updateEvent(id, patchOrEvent) {
+      updateEvent(event) {
+        const id = event && event.id;
+        if (!id) return false;
         const arr = this.listEvents();
         const idx = arr.findIndex((ev) => ev && ev.id === id);
         if (idx === -1) return false;
 
         arr[idx] =
-          patchOrEvent && typeof patchOrEvent === "object" && !Array.isArray(patchOrEvent)
-            ? { ...arr[idx], ...patchOrEvent }
-            : patchOrEvent;
+          event && typeof event === "object" && !Array.isArray(event)
+            ? { ...arr[idx], ...event }
+            : event;
 
         this._writeEvents(arr);
         return true;
       },
 
-      deleteEvent(id) {
+      deleteEventById(id) {
         const arr = this.listEvents();
         const next = arr.filter((ev) => ev && ev.id !== id);
         this._writeEvents(next);
@@ -1912,7 +1914,7 @@ openExportEventsOverlay() {
 
   this.lockTopControls();
 
-  const data = this.dataStore.events.exportEvents();
+  const data = this.dataStore.eventStore.exportEvents();
   const json = JSON.stringify(data, null, 2);
 
   overlay.classList.remove("hidden");
@@ -1998,7 +2000,7 @@ openImportEventsOverlay() {
         return;
       }
 
-      const imported = this.dataStore.events.importEvents(parsed);
+      const imported = this.dataStore.eventStore.importEvents(parsed);
 
       if (imported.length === 0) {
         alert("Inget att importera. Kontrollera att varje post har title, date och createdBy.");
@@ -2050,15 +2052,15 @@ openImportBirthdaysPrompt() {
 },
 
 getUserEvents() {
-  return this.dataStore.events.listEvents();
+  return this.dataStore.eventStore.listEvents();
 },
 
 setUserEvents(events) {
-  this.dataStore.events.replaceEvents(events);
+  this.dataStore.eventStore.replaceEvents(events);
 },
 
 addUserEvent(ev) {
-  return this.dataStore.events.createEvent(ev);
+  return this.dataStore.eventStore.createEvent(ev);
 },
 
 getUserEventById(id) {
@@ -2068,14 +2070,14 @@ getUserEventById(id) {
 
 updateUserEvent(updated) {
   if (!updated || String(updated.type || "event").toLowerCase() === "birthday") return false;
-  return this.dataStore.events.updateEvent(updated.id, updated);
+  return this.dataStore.eventStore.updateEvent(updated);
 },
 
 deleteUserEventById(id) {
   if (!id) return false;
   const ev = this.getUserEventById(id);
   if (ev && String(ev.type || "event").toLowerCase() === "birthday") return false;
-  return this.dataStore.events.deleteEvent(id);
+  return this.dataStore.eventStore.deleteEventById(id);
 },
 
  closeOverlay() {
