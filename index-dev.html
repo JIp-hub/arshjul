@@ -285,9 +285,13 @@ body.controls-locked .controls label {
 
   #printWrap .print-row {
     display: grid;
-    grid-template-columns: 7mm 6mm 1fr;
+    grid-template-columns: 8mm 6mm minmax(0, 1fr);
     column-gap: 2mm;
-    align-items: baseline;
+    align-items: center;
+    min-height: 5mm;
+    line-height: 1.3;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   #printWrap .print-day {
