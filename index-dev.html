@@ -2158,17 +2158,16 @@ deleteUserEventById(id) {
     copyBtn.addEventListener("click", async () => {
       if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) return;
 
-      let text = "";
-      try {
-        text = this.buildBirthdaysText();
-        const ok = await this.copyBirthdaysToClipboard();
+      const text = this.buildBirthdaysText();
 
-        if (!ok) {
-          this.showCopyHelper(text);
-        }
+      // Öppna alltid overlayn (konsekvent UX)
+      this.showCopyHelper(text);
+
+      // Försök kopiera i bakgrunden (bonus när det funkar)
+      try {
+        await this.copyBirthdaysToClipboard();
       } catch (e) {
         console.error("Fel vid kopiering av födelsedagslista:", e);
-        this.showCopyHelper(text);
       }
     });
   }
