@@ -735,7 +735,7 @@ replaceEvents(events) {
       }
     },
 
-    birthdays: {
+      birthdayStore: {
       baseKey: "arshjul_birthdays_v1",
 
       getKey() {
@@ -808,9 +808,18 @@ replaceEvents(events) {
           return this._dedupe(App.demoBirthdays || []);
         }
       },
+      importBirthdays(jsonTextOrArray) {
+        let parsed = jsonTextOrArray;
 
-      importBirthdays(list) {
-        const normalized = this._dedupe(Array.isArray(list) ? list : []);
+        if (typeof jsonTextOrArray === "string") {
+          try {
+            parsed = JSON.parse(jsonTextOrArray);
+          } catch {
+            parsed = [];
+          }
+        }
+
+        const normalized = this._dedupe(Array.isArray(parsed) ? parsed : []);
         this._writeBirthdays(normalized);
         return normalized;
       },
@@ -977,7 +986,7 @@ applyAdminMode() {
   },
 
   getBirthdayEvents() {
-    return this.dataStore.birthdays.listBirthdays().map((b) => ({
+    return this.dataStore.birthdayStore.listBirthdays().map((b) => ({
       type: "birthday",
       day: b.day,
       month: this.monthNames[b.month - 1],
@@ -2018,7 +2027,7 @@ openImportEventsOverlay() {
 },
 
 openExportBirthdaysPrompt() {
-  const data = this.dataStore.birthdays.exportBirthdays();
+  const data = this.dataStore.birthdayStore.exportBirthdays();
   const json = JSON.stringify(data, null, 2);
   window.prompt("Kopiera JSON för födelsedagar:", json);
 },
@@ -2042,7 +2051,7 @@ openImportBirthdaysPrompt() {
     return;
   }
 
-  const imported = this.dataStore.birthdays.importBirthdays(parsed);
+  const imported = this.dataStore.birthdayStore.importBirthdays(parsed);
   this.renderMonthsFromEvents();
   this.updateAllAges();
   if (document.body.classList.contains("overview-mode")) {

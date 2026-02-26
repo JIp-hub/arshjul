@@ -735,7 +735,7 @@ replaceEvents(events) {
       }
     },
 
-    birthdays: {
+    birthdayStore: {
       baseKey: "arshjul_birthdays_v1",
 
       getKey() {
@@ -809,12 +809,21 @@ replaceEvents(events) {
         }
       },
 
-      importBirthdays(list) {
-        const normalized = this._dedupe(Array.isArray(list) ? list : []);
+      importBirthdays(jsonTextOrArray) {
+        let parsed = jsonTextOrArray;
+
+        if (typeof jsonTextOrArray === "string") {
+          try {
+            parsed = JSON.parse(jsonTextOrArray);
+          } catch {
+            parsed = [];
+          }
+        }
+
+        const normalized = this._dedupe(Array.isArray(parsed) ? parsed : []);
         this._writeBirthdays(normalized);
         return normalized;
       },
-
       exportBirthdays() {
         return this.listBirthdays();
       }
@@ -976,8 +985,8 @@ applyAdminMode() {
     return `${this.calculateAge(birthYear)} år`;
   },
 
-  getBirthdayEvents() {
-    return this.dataStore.birthdays.listBirthdays().map((b) => ({
+    getBirthdayEvents() {
+    return this.dataStore.birthdayStore.listBirthdays().map((b) => ({
       type: "birthday",
       day: b.day,
       month: this.monthNames[b.month - 1],
@@ -985,7 +994,6 @@ applyAdminMode() {
       name: b.name
     })).filter((b) => b.month);
   },
-
   getCombinedEvents() {
     const baseEvents = this.getBirthdayEvents();
     const userRaw = this.getUserEvents();
@@ -2018,7 +2026,7 @@ openImportEventsOverlay() {
 },
 
 openExportBirthdaysPrompt() {
-  const data = this.dataStore.birthdays.exportBirthdays();
+  const data = this.dataStore.birthdayStore.exportBirthdays();
   const json = JSON.stringify(data, null, 2);
   window.prompt("Kopiera JSON för födelsedagar:", json);
 },
@@ -2042,7 +2050,7 @@ openImportBirthdaysPrompt() {
     return;
   }
 
-  const imported = this.dataStore.birthdays.importBirthdays(parsed);
+  const imported = this.dataStore.birthdayStore.importBirthdays(parsed);
   this.renderMonthsFromEvents();
   this.updateAllAges();
   if (document.body.classList.contains("overview-mode")) {
