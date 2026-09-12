@@ -2,6 +2,7 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Årshjul</title>
 <style>
   body {
@@ -95,6 +96,8 @@ body.controls-locked .controls label {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
     z-index: 20000;
   }
 
@@ -107,8 +110,48 @@ body.controls-locked .controls label {
   background: white;
   padding: 1.5rem;
   max-width: 420px;
-  width: 90%;
+  width: min(420px, 100%);
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
   border-radius: 8px;
+}
+
+body.dialog-open {
+  overflow: hidden;
+}
+
+.status-message {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin: 0 0 1rem;
+  background: #eef5ff;
+  color: #17365d;
+}
+
+.status-message.error {
+  background: #fff0f0;
+  color: #8a1f1f;
+}
+
+@media (max-width: 600px) {
+  body {
+    margin: 1rem;
+  }
+
+  .overlay {
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .overlay-content {
+    width: 100%;
+    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+    padding: 1rem;
+  }
 }
 
 .hidden {
@@ -353,6 +396,8 @@ body.controls-locked #copyHelperOverlay {
   <button class="admin-only" id="setFamilyCodeBtn" type="button">Byt familj</button>
 </div>
 
+<p id="appStatus" class="status-message hidden" role="status" aria-live="polite"></p>
+
 <!-- Print-only (byggs av JS precis innan utskrift) -->
 <div id="printMeta" class="print-only"></div>
 <div id="printWrap" class="print-only"></div>
@@ -426,12 +471,12 @@ body.controls-locked #copyHelperOverlay {
   <div class="overview-grid" id="overviewGrid"></div>
 </div>
 
-<div id="overlay" class="overlay hidden">
+<div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="overlayTitle" aria-hidden="true" tabindex="-1">
 
   <div class="overlay-content">
-    <button id="closeOverlay">Stäng ×</button>
+    <button id="closeOverlay" type="button" aria-label="Stäng dialog">Stäng ×</button>
     <h2 id="overlayTitle">Februari</h2>
-    <p id="overlayText">Här ska informationen om februari visas.</p>
+    <div id="overlayText">Här ska informationen om februari visas.</div>
   </div>
 </div>
 
@@ -443,6 +488,8 @@ const App = {
   currentYear: new Date().getFullYear(),
   selectedYear: null,
   _isPreparingPrint: false,
+  _dialogReturnFocus: null,
+  _pendingStatus: null,
   familyCodeStorageKey: "arshjul_family_code_v1",
   adminModeStorageKey: "arshjul_admin_mode_v1",
   defaultFamilyCode: "default",
@@ -523,6 +570,7 @@ const App = {
     exitAdminBtn: null,
     familyCodeInput: null,
     setFamilyCodeBtn: null,
+    appStatus: null,
 
     openSound: null,
     yearSelect: null,
@@ -536,6 +584,7 @@ const App = {
   dataStore: {
     eventStore: {
       baseKey: "arshjul_user_events_v1",
+      _lastReadFailed: false,
 
       getKey() {
         const familyCode =
@@ -551,7 +600,7 @@ const App = {
         if (!event || typeof event !== "object") return null;
 
         const title = String(event.title || "").trim();
-        const date = String(event.date || "").trim();
+        const date = App.normalizeISODate(event.date);
         const createdBy = String(event.createdBy || "").trim();
 
         if (!title || !date || !createdBy) return null;
@@ -568,116 +617,107 @@ const App = {
         };
       },
 
-            _writeEvents(events) {
+      _signature(event) {
+        const normalize = (value) =>
+          String(value ?? "")
+            .replace(/[\u200B-\u200D\uFEFF]/g, "")
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, " ");
+
+        return [
+          App.normalizeISODate(event?.date) || "",
+          normalize(event?.title),
+          normalize(event?.time),
+          normalize(event?.place),
+          normalize(event?.desc),
+          normalize(event?.createdBy)
+        ].join("|");
+      },
+
+      _writeEvents(events) {
         try {
           localStorage.setItem(this.getKey(), JSON.stringify(events));
-        } catch {
-          // ignorera (t.ex. om storage är blockerat)
+          return true;
+        } catch (error) {
+          App.handleStorageFailure("spara händelser", error);
+          return false;
         }
       },
 
-replaceEvents(events) {
-  const arr = Array.isArray(events) ? events : [];
-  this._writeEvents(arr);
-},
+      replaceEvents(events) {
+        const arr = Array.isArray(events)
+          ? events.map((event, index) => this._normalizeEvent(event, `ev_${Date.now()}_${index}`)).filter(Boolean)
+          : [];
+        return this._writeEvents(arr);
+      },
+
       listEvents() {
-        const normText = (s) =>
-          String(s ?? "")
-            .replace(/[\u200B-\u200D\uFEFF]/g, "") // tar bort zero-width tecken
-            .trim();
-
-        const toISODate = (s) => {
-          const raw = normText(s).replace(/\s+/g, "");
-          // Förväntar "YYYY-MM-DD" men hanterar även "YYYY-M-D"
-          const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-          if (!m) return raw;
-          const yyyy = m[1];
-          const mm = String(m[2]).padStart(2, "0");
-          const dd = String(m[3]).padStart(2, "0");
-          return `${yyyy}-${mm}-${dd}`;
-        };
-
-        const sig = (ev) => {
-          const date = toISODate(ev?.date);
-          const title = normText(ev?.title).toLowerCase().replace(/\s+/g, " ");
-          const time = normText(ev?.time).toLowerCase().replace(/\s+/g, " ");
-          const place = normText(ev?.place).toLowerCase().replace(/\s+/g, " ");
-          const desc = normText(ev?.desc).toLowerCase().replace(/\s+/g, " ");
-          const createdBy = normText(ev?.createdBy).toLowerCase().replace(/\s+/g, " ");
-          return [date, title, time, place, desc, createdBy].join("|");
-        };
-
         try {
           const raw = localStorage.getItem(this.getKey());
           const parsed = raw ? JSON.parse(raw) : [];
-          const arr = Array.isArray(parsed) ? parsed : [];
+          if (!Array.isArray(parsed)) throw new Error("Sparad händelsedata är inte en lista.");
 
-          // 1) Normalisera fält (framför allt date)
-          const normalized = arr.map((ev) => {
-            if (!ev || typeof ev !== "object") return ev;
-            return {
-              ...ev,
-              title: normText(ev.title),
-              date: toISODate(ev.date),
-              time: normText(ev.time),
-              place: normText(ev.place),
-              desc: normText(ev.desc),
-              createdBy: normText(ev.createdBy),
-            };
-          });
+          const normalized = parsed
+            .map((event, index) => this._normalizeEvent(event, `ev_${Date.now()}_${index}`))
+            .filter(Boolean);
 
-          // 2) Deduplicera (behåll första förekomsten)
           const seen = new Set();
           const cleaned = [];
-          for (const ev of normalized) {
-            const k = sig(ev);
-            if (seen.has(k)) continue;
-            seen.add(k);
-            cleaned.push(ev);
+          for (const event of normalized) {
+            const key = this._signature(event);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            cleaned.push(event);
           }
 
-          // 3) Skriv tillbaka om något ändrades (städning permanent)
           const changed =
-            cleaned.length !== arr.length ||
-            JSON.stringify(cleaned) !== JSON.stringify(arr);
+            cleaned.length !== parsed.length ||
+            JSON.stringify(cleaned) !== JSON.stringify(parsed);
 
           if (changed) {
             this._writeEvents(cleaned);
           }
 
+          this._lastReadFailed = false;
           return cleaned;
-        } catch {
+        } catch (error) {
+          this._lastReadFailed = true;
+          App.handleStorageFailure("läsa sparade händelser", error);
           return [];
         }
       },
 
       createEvent(event) {
+        const normalized = this._normalizeEvent(event);
+        if (!normalized) return false;
         const arr = this.listEvents();
-        arr.push(event);
-        this._writeEvents(arr);
+        if (this._lastReadFailed) return false;
+        arr.push(normalized);
+        return this._writeEvents(arr);
       },
 
       updateEvent(event) {
         const id = event && event.id;
         if (!id) return false;
         const arr = this.listEvents();
+        if (this._lastReadFailed) return false;
         const idx = arr.findIndex((ev) => ev && ev.id === id);
         if (idx === -1) return false;
 
-        arr[idx] =
-          event && typeof event === "object" && !Array.isArray(event)
-            ? { ...arr[idx], ...event }
-            : event;
+        const normalized = this._normalizeEvent({ ...arr[idx], ...event }, id);
+        if (!normalized) return false;
 
-        this._writeEvents(arr);
-        return true;
+        arr[idx] = normalized;
+        return this._writeEvents(arr);
       },
 
       deleteEventById(id) {
         const arr = this.listEvents();
+        if (this._lastReadFailed) return false;
         const next = arr.filter((ev) => ev && ev.id !== id);
-        this._writeEvents(next);
-        return next.length !== arr.length;
+        if (next.length === arr.length) return false;
+        return this._writeEvents(next);
       },
 
       importEvents(list) {
@@ -690,35 +730,10 @@ replaceEvents(events) {
         if (normalized.length === 0) return [];
 
         const current = this.listEvents();
-
-        const normText = (s) =>
-          String(s ?? "")
-            .replace(/[\u200B-\u200D\uFEFF]/g, "")
-            .trim();
-
-        const toISODate = (s) => {
-          const raw = normText(s).replace(/\s+/g, "");
-          const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-          if (!m) return raw;
-          const yyyy = m[1];
-          const mm = String(m[2]).padStart(2, "0");
-          const dd = String(m[3]).padStart(2, "0");
-          return `${yyyy}-${mm}-${dd}`;
-        };
-
-        const sig = (ev) => {
-          const date = toISODate(ev?.date);
-          const title = normText(ev?.title).toLowerCase().replace(/\s+/g, " ");
-          const time = normText(ev?.time).toLowerCase().replace(/\s+/g, " ");
-          const place = normText(ev?.place).toLowerCase().replace(/\s+/g, " ");
-          const desc = normText(ev?.desc).toLowerCase().replace(/\s+/g, " ");
-          const createdBy = normText(ev?.createdBy).toLowerCase().replace(/\s+/g, " ");
-          return [date, title, time, place, desc, createdBy].join("|");
-        };
-
-        const seen = new Set(current.map((event) => sig(event)));
+        if (this._lastReadFailed) return null;
+        const seen = new Set(current.map((event) => this._signature(event)));
         const uniqueIncoming = normalized.filter((event) => {
-          const key = sig(event);
+          const key = this._signature(event);
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
@@ -726,7 +741,7 @@ replaceEvents(events) {
 
         if (uniqueIncoming.length === 0) return [];
 
-        this._writeEvents([...current, ...uniqueIncoming]);
+        if (!this._writeEvents([...current, ...uniqueIncoming])) return null;
         return uniqueIncoming;
       },
 
@@ -752,17 +767,22 @@ replaceEvents(events) {
         if (!entry || typeof entry !== "object") return null;
 
         const name = String(entry.name || "").trim();
-        const month = Number.parseInt(entry.month, 10);
-        const day = Number.parseInt(entry.day, 10);
+        const month = Number(entry.month);
+        const day = Number(entry.day);
 
-        if (!name || Number.isNaN(month) || Number.isNaN(day)) return null;
-        if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+        if (!name || !Number.isInteger(month) || !Number.isInteger(day)) return null;
 
         const parsedYear =
           entry.year === null || String(entry.year).trim() === ""
             ? null
-            : Number.parseInt(entry.year, 10);
-        const year = Number.isNaN(parsedYear) ? null : parsedYear;
+            : Number(entry.year);
+        if (parsedYear !== null && (!Number.isInteger(parsedYear) || parsedYear < 1 || parsedYear > 9999)) {
+          return null;
+        }
+
+        const year = parsedYear;
+        const validationYear = year ?? 2000;
+        if (!App.isValidCalendarDate(validationYear, month, day)) return null;
 
         return { name, month, day, year };
       },
@@ -791,8 +811,10 @@ replaceEvents(events) {
         try {
           const normalized = this._dedupe(Array.isArray(list) ? list : []);
           localStorage.setItem(this.getKey(), JSON.stringify(normalized));
-        } catch {
-          // ignorera
+          return true;
+        } catch (error) {
+          App.handleStorageFailure("spara födelsedagar", error);
+          return false;
         }
       },
 
@@ -802,9 +824,10 @@ replaceEvents(events) {
           if (!raw) return this._dedupe(App.demoBirthdays || []);
 
           const parsed = JSON.parse(raw);
-          const arr = Array.isArray(parsed) ? parsed : [];
-          return this._dedupe(arr);
-        } catch {
+          if (!Array.isArray(parsed)) throw new Error("Sparad födelsedagsdata är inte en lista.");
+          return this._dedupe(parsed);
+        } catch (error) {
+          App.handleStorageFailure("läsa sparade födelsedagar", error);
           return this._dedupe(App.demoBirthdays || []);
         }
       },
@@ -815,17 +838,49 @@ replaceEvents(events) {
         if (typeof jsonTextOrArray === "string") {
           try {
             parsed = JSON.parse(jsonTextOrArray);
-          } catch {
-            parsed = [];
+          } catch (error) {
+            return null;
           }
         }
 
-        const normalized = this._dedupe(Array.isArray(parsed) ? parsed : []);
-        this._writeBirthdays(normalized);
+        if (!Array.isArray(parsed) || parsed.length === 0) return null;
+
+        const individuallyNormalized = parsed.map((entry) => this._normalizeBirthday(entry));
+        if (individuallyNormalized.some((entry) => entry === null)) return null;
+
+        const normalized = this._dedupe(individuallyNormalized);
+        if (normalized.length === 0 || !this._writeBirthdays(normalized)) return null;
         return normalized;
       },
+
       exportBirthdays() {
         return this.listBirthdays();
+      }
+    },
+
+    prefs: {
+      getKey(key) {
+        return `${String(key)}::${App.getCurrentFamilyCode()}`;
+      },
+
+      getString(key, fallback = "") {
+        try {
+          const value = localStorage.getItem(this.getKey(key));
+          return value == null ? String(fallback) : String(value);
+        } catch (error) {
+          App.handleStorageFailure("läsa inställningar", error);
+          return String(fallback);
+        }
+      },
+
+      setString(key, value) {
+        try {
+          localStorage.setItem(this.getKey(key), String(value));
+          return true;
+        } catch (error) {
+          App.handleStorageFailure("spara inställningar", error);
+          return false;
+        }
       }
     }
   },
@@ -833,6 +888,69 @@ replaceEvents(events) {
   /* ==========================
      2. FUNCTIONS
   ========================= */
+isValidCalendarDate(year, month, day) {
+  if (![year, month, day].every(Number.isInteger)) return false;
+  if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1) return false;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysPerMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysPerMonth[month - 1];
+},
+
+normalizeISODate(rawDate) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(rawDate || "").trim());
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!this.isValidCalendarDate(year, month, day)) return null;
+  return `${match[1]}-${match[2]}-${match[3]}`;
+},
+
+showStatus(message, type = "info") {
+  const status = this.dom.appStatus;
+  const payload = { message: String(message || ""), type };
+  if (!status) {
+    this._pendingStatus = payload;
+    return;
+  }
+
+  status.textContent = payload.message;
+  status.classList.toggle("hidden", !payload.message);
+  status.classList.toggle("error", payload.type === "error");
+  status.setAttribute("role", payload.type === "error" ? "alert" : "status");
+
+  const overlayIsOpen = this.dom.overlay && !this.dom.overlay.classList.contains("hidden");
+  if (payload.type === "error" && overlayIsOpen && this.dom.overlayText) {
+    let dialogStatus = this.dom.overlayText.querySelector('[data-dialog-status="true"]');
+    if (!dialogStatus) {
+      dialogStatus = document.createElement("p");
+      dialogStatus.dataset.dialogStatus = "true";
+      dialogStatus.className = "status-message error";
+      dialogStatus.setAttribute("role", "status");
+      this.dom.overlayText.prepend(dialogStatus);
+    }
+    dialogStatus.textContent = payload.message;
+  }
+},
+
+clearStatus() {
+  this.showStatus("");
+},
+
+handleStorageFailure(action, error) {
+  console.error(`Kunde inte ${action}:`, error);
+  this.showStatus(`Kunde inte ${action}. Kontrollera webbläsarens lagring och försök igen.`, "error");
+},
+
+refreshViews() {
+  this.renderMonthsFromEvents();
+  this.updateAllAges();
+  if (document.body.classList.contains("overview-mode")) {
+    this.buildOverview();
+  }
+},
+
 sanitizeFamilyCode(rawCode) {
   const code = String(rawCode || "").trim();
   return code || this.defaultFamilyCode;
@@ -846,7 +964,8 @@ loadFamilyCode() {
   let stored = this.defaultFamilyCode;
   try {
     stored = localStorage.getItem(this.familyCodeStorageKey) || this.defaultFamilyCode;
-  } catch {
+  } catch (error) {
+    this.handleStorageFailure("läsa familjekod", error);
     stored = this.defaultFamilyCode;
   }
 
@@ -860,19 +979,15 @@ setFamilyCode(nextCode) {
 
   try {
     localStorage.setItem(this.familyCodeStorageKey, normalized);
-  } catch {
-    // ignorera
+  } catch (error) {
+    this.handleStorageFailure("spara familjekod", error);
   }
 
   if (this.dom.familyCodeInput) {
     this.dom.familyCodeInput.value = normalized;
   }
 
-  this.renderMonthsFromEvents();
-  this.updateAllAges();
-  if (document.body.classList.contains("overview-mode")) {
-    this.buildOverview();
-  }
+  this.refreshViews();
 },
 
 cacheDom() {
@@ -891,6 +1006,7 @@ cacheDom() {
   this.dom.exitAdminBtn = document.getElementById("exitAdminBtn");
   this.dom.familyCodeInput = document.getElementById("familyCodeInput");
   this.dom.setFamilyCodeBtn = document.getElementById("setFamilyCodeBtn");
+  this.dom.appStatus = document.getElementById("appStatus");
 
   this.dom.openSound = document.getElementById("openSound");
   this.dom.yearSelect = document.getElementById("yearSelect");
@@ -898,6 +1014,12 @@ cacheDom() {
   this.dom.overviewGrid = document.getElementById("overviewGrid");
   this.dom.printMeta = document.getElementById("printMeta");
   this.dom.printWrap = document.getElementById("printWrap");
+
+  if (this._pendingStatus) {
+    const { message, type } = this._pendingStatus;
+    this._pendingStatus = null;
+    this.showStatus(message, type);
+  }
 
   // Ljud: undvik fel i file://
   if (this.dom.openSound) {
@@ -946,6 +1068,92 @@ cacheDom() {
   if (this.dom.importBirthdaysBtn) this.dom.importBirthdaysBtn.disabled = false;
 },
 
+rememberDialogFocus() {
+  if (!this._dialogReturnFocus) {
+    this._dialogReturnFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  }
+},
+
+restoreDialogFocus() {
+  const target = this._dialogReturnFocus;
+  this._dialogReturnFocus = null;
+
+  if (target && target.isConnected && typeof target.focus === "function") {
+    target.focus();
+  } else if (this.dom.addEventBtn) {
+    this.dom.addEventBtn.focus();
+  }
+},
+
+showOverlay(initialFocus = null) {
+  const { overlay } = this.dom;
+  if (!overlay) return;
+
+  if (overlay.classList.contains("hidden")) this.rememberDialogFocus();
+  this.lockTopControls();
+  document.body.classList.add("dialog-open");
+  overlay.classList.remove("hidden");
+  overlay.setAttribute("aria-hidden", "false");
+
+  requestAnimationFrame(() => {
+    const target = initialFocus && initialFocus.isConnected ? initialFocus : this.dom.closeBtn;
+    target?.focus();
+  });
+},
+
+getFocusableElements(container) {
+  if (!container) return [];
+  const selector = [
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(",");
+
+  return Array.from(container.querySelectorAll(selector)).filter((element) =>
+    element instanceof HTMLElement && !element.hidden && element.getClientRects().length > 0
+  );
+},
+
+trapDialogFocus(event, container) {
+  if (event.key !== "Tab") return;
+  const focusable = this.getFocusableElements(container);
+  if (focusable.length === 0) {
+    event.preventDefault();
+    container?.focus();
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!container.contains(document.activeElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+    return;
+  }
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+},
+
+closeCopyHelperOverlay() {
+  const wrap = document.getElementById("copyHelperOverlay");
+  if (!wrap) return false;
+  wrap.remove();
+  document.body.classList.remove("dialog-open");
+  this.unlockTopControls();
+  this.restoreDialogFocus();
+  return true;
+},
+
 exitAdminMode() {
   document.body.classList.remove("admin-mode");
 
@@ -985,7 +1193,7 @@ applyAdminMode() {
     return `${this.calculateAge(birthYear)} år`;
   },
 
-    getBirthdayEvents() {
+  getBirthdayEvents() {
     return this.dataStore.birthdayStore.listBirthdays().map((b) => ({
       type: "birthday",
       day: b.day,
@@ -994,8 +1202,10 @@ applyAdminMode() {
       name: b.name
     })).filter((b) => b.month);
   },
+
   getCombinedEvents() {
     const baseEvents = this.getBirthdayEvents();
+    const selectedYear = Number.isFinite(this.selectedYear) ? this.selectedYear : this.currentYear;
     const userRaw = this.getUserEvents();
     const userEvents = userRaw
       .map((ev) => {
@@ -1023,7 +1233,7 @@ applyAdminMode() {
           createdBy: ev.createdBy || ""
         };
       })
-      .filter(Boolean);
+      .filter((event) => event && event.year === selectedYear);
 
     return [...baseEvents, ...userEvents];
   },
@@ -1103,11 +1313,7 @@ applyAdminMode() {
 
     yearSelect.addEventListener("change", () => {
       this.selectedYear = parseInt(yearSelect.value, 10);
-      this.updateAllAges();
-
-      if (document.body.classList.contains("overview-mode")) {
-        this.buildOverview();
-      }
+      this.refreshViews();
     });
 
     yearSelect.addEventListener(
@@ -1313,11 +1519,16 @@ applyAdminMode() {
     const existing = document.getElementById("copyHelperOverlay");
     if (existing) existing.remove();
 
-        // Lås toppkontroller medan kopieramodalen är öppen
+    this.rememberDialogFocus();
     this.lockTopControls();
+    document.body.classList.add("dialog-open");
 
     const wrap = document.createElement("div");
     wrap.id = "copyHelperOverlay";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-modal", "true");
+    wrap.setAttribute("aria-labelledby", "copyHelperTitle");
+    wrap.tabIndex = -1;
     wrap.style.position = "fixed";
     wrap.style.inset = "0";
     wrap.style.background = "rgba(0,0,0,0.5)";
@@ -1345,6 +1556,7 @@ applyAdminMode() {
     top.style.gap = "12px";
 
     const title = document.createElement("div");
+    title.id = "copyHelperTitle";
     title.textContent = "Kopiera listan";
     title.style.fontWeight = "600";
 
@@ -1371,28 +1583,11 @@ applyAdminMode() {
       'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
     ta.style.fontVariantNumeric = "tabular-nums";
 
-        const unlockControls = () => {
-      this.unlockTopControls();
-    };
-
-    const closeModal = () => {
-      wrap.remove();
-      unlockControls();
-
-      // När man stänger kopieringsfönstret: återgå till nuvarande år i linjära vyn
-      if (!document.body.classList.contains("overview-mode") && this.selectedYear !== this.currentYear) {
-        this.resetYearToCurrent();
-      }
-
-      // Sätt tillbaka fokus så UI känns “klart”
-      if (this.dom.copyBtn) this.dom.copyBtn.focus();
-    };
-
-    close.addEventListener("click", closeModal);
+    close.addEventListener("click", () => this.closeCopyHelperOverlay());
 
     // Klick på bakgrunden stänger (valfritt men stabilt)
     wrap.addEventListener("click", (e) => {
-      if (e.target === wrap) closeModal();
+      if (e.target === wrap) this.closeCopyHelperOverlay();
     });
 
     top.appendChild(title);
@@ -1566,8 +1761,6 @@ applyAdminMode() {
        // Lås upp toppkontroller igen
     this.unlockTopControls();
 
-    // Efter print: återgå till nuvarande år (2026)
-    this.resetYearToCurrent();
   },
  
     handleBeforePrint() {
@@ -1576,11 +1769,6 @@ applyAdminMode() {
 
         // Lås toppkontroller under print (förutsägbart läge)
     this.lockTopControls();
-
-    // Stäng overlay visuellt inför print
-    if (this.dom.overlay && !this.dom.overlay.classList.contains("hidden")) {
-      this.dom.overlay.classList.add("hidden");
-    }
 
     document.body.classList.add("print-birthdays-only");
     this.buildPrintView();
@@ -1599,10 +1787,23 @@ applyAdminMode() {
   },
 
   handleKeydown(event) {
-    const { overlay } = this.dom;
-    if (event.key === "Escape" && overlay) {
-      this.closeOverlay();
+    const copyDialog = document.getElementById("copyHelperOverlay");
+    const overlayIsOpen = this.dom.overlay && !this.dom.overlay.classList.contains("hidden");
+    const activeDialog = copyDialog || (overlayIsOpen ? this.dom.overlay : null);
+    if (!activeDialog) return;
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (copyDialog) {
+        this.closeCopyHelperOverlay();
+      } else {
+        this.closeOverlay();
+      }
+      return;
     }
+
+    this.trapDialogFocus(event, activeDialog);
   },
 
  handleOverlayClick(event) {
@@ -1625,7 +1826,6 @@ applyAdminMode() {
       this.buildOverview();
     } else {
       document.body.classList.remove("overview-mode");
-      this.resetYearToCurrent();
     }
 
     this.setOverviewButtonLabel();
@@ -1637,11 +1837,7 @@ applyAdminMode() {
 
     yearSelect.value = String(this.currentYear);
     this.selectedYear = this.currentYear;
-    this.updateAllAges();
-
-    if (document.body.classList.contains("overview-mode")) {
-      this.buildOverview();
-    }
+    this.refreshViews();
   },
 
    openOverlayFromButton(dayButton) {
@@ -1674,55 +1870,65 @@ applyAdminMode() {
   if (type === "event" && id) {
     const ev = this.getUserEventById(id);
 
-    const safe = (v) => (v == null ? "" : String(v));
-    const title = safe(ev?.title || name);
-    const date = safe(ev?.date || "");
-    const time = safe(ev?.time || "");
-    const place = safe(ev?.place || "");
-    const desc = safe(ev?.desc || "");
-    const createdBy = safe(ev?.createdBy || "");
-    const icon = safe(ev?.icon || "");
+    const detail = document.createElement("div");
+    detail.style.display = "grid";
+    detail.style.gap = "0.4rem";
 
-    overlayText.innerHTML = `
-      <div style="display:grid; gap:0.4rem;">
-        <div><strong>${icon ? `${icon} ` : ""}${title}</strong></div>
-        ${date ? `<div>Datum: ${date}</div>` : ``}
-        ${time ? `<div>Tid: ${time}</div>` : ``}
-        ${place ? `<div>Plats: ${place}</div>` : ``}
-        ${desc ? `<div>Beskrivning: ${desc}</div>` : ``}
-        ${createdBy ? `<div>Skapad av: ${createdBy}</div>` : ``}
+    const heading = document.createElement("strong");
+    const eventIcon = String(ev?.icon || "").trim();
+    const eventTitle = String(ev?.title || name || "Händelse");
+    heading.textContent = eventIcon ? `${eventIcon} ${eventTitle}` : eventTitle;
+    const headingRow = document.createElement("div");
+    headingRow.appendChild(heading);
+    detail.appendChild(headingRow);
 
-        <div style="display:flex; gap:0.5rem; margin-top:0.6rem; justify-content:flex-end;">
-          <button type="button" id="eventEditBtn">Redigera</button>
-          <button type="button" id="eventDeleteBtn">Ta bort</button>
-        </div>
-      </div>
-    `;
+    const appendDetail = (label, value) => {
+      const normalized = String(value || "").trim();
+      if (!normalized) return;
+      const row = document.createElement("div");
+      row.textContent = `${label}: ${normalized}`;
+      detail.appendChild(row);
+    };
 
-    // Öppna + lås kontroller
-    this.lockTopControls();
-    overlay.classList.remove("hidden");
+    appendDetail("Datum", ev?.date);
+    appendDetail("Tid", ev?.time);
+    appendDetail("Plats", ev?.place);
+    appendDetail("Beskrivning", ev?.desc);
+    appendDetail("Skapad av", ev?.createdBy);
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "0.5rem";
+    actions.style.marginTop = "0.6rem";
+    actions.style.justifyContent = "flex-end";
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.textContent = "Redigera";
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.textContent = "Ta bort";
+    actions.append(editBtn, delBtn);
+    detail.appendChild(actions);
+    overlayText.replaceChildren(detail);
+
+    this.showOverlay(editBtn);
     playOpenSound();
 
-    const editBtn = document.getElementById("eventEditBtn");
-    const delBtn = document.getElementById("eventDeleteBtn");
+    editBtn.addEventListener("click", () => this.openEventCreateOverlay(ev));
+    delBtn.addEventListener("click", () => {
+      const ok = confirm("Ta bort händelsen?");
+      if (!ok) return;
 
-    if (editBtn) {
-      editBtn.addEventListener("click", () => {
-        this.openEventCreateOverlay(ev); // öppna i redigeringsläge
-      });
-    }
+      if (!this.deleteUserEventById(id)) {
+        this.showStatus("Händelsen kunde inte tas bort.", "error");
+        return;
+      }
 
-    if (delBtn) {
-      delBtn.addEventListener("click", () => {
-        const ok = confirm("Ta bort händelsen?");
-        if (!ok) return;
-
-        this.deleteUserEventById(id);
-        this.renderMonthsFromEvents();
-        this.closeOverlay(); // stänger + låser upp kontroller konsekvent
-      });
-    }
+      this.refreshViews();
+      this.closeOverlay();
+      this.showStatus("Händelsen togs bort.");
+    });
 
     return;
   }
@@ -1736,17 +1942,13 @@ applyAdminMode() {
     overlayText.textContent = text || name || "";
   }
 
-  // Öppna + lås kontroller
-  this.lockTopControls();
-  overlay.classList.remove("hidden");
+  this.showOverlay();
   playOpenSound();
 },
 
  openEventCreateOverlay(existingEvent = null) {
   const { overlay, overlayTitle, overlayText } = this.dom;
   if (!overlay || !overlayTitle || !overlayText) return;
-
-  this.lockTopControls();
 
   const SIGN_KEY = "arshjul_last_signature_v1";
   const ICON_KEY = "arshjul_last_event_icon_v1";
@@ -1757,12 +1959,10 @@ applyAdminMode() {
 
   const isEdit = !!(existingEvent && existingEvent.id);
 
-  // Öppna overlay
-  overlay.classList.remove("hidden");
   overlayTitle.textContent = isEdit ? "Redigera händelse" : "Ny händelse";
 
   overlayText.innerHTML = `
-    <form id="eventCreateForm" class="event-form" data-edit-id="${isEdit ? String(existingEvent.id) : ""}">
+    <form id="eventCreateForm" class="event-form" data-edit-id="">
       <div class="event-field">
         <label for="eventTitle">Titel *</label>
         <input id="eventTitle" name="title" type="text" required />
@@ -1821,6 +2021,8 @@ applyAdminMode() {
   const cancelBtn = document.getElementById("eventCancelBtn");
   const saveBtn = document.getElementById("eventSaveBtn");
 
+  if (form) form.dataset.editId = isEdit ? String(existingEvent.id) : "";
+
   // Prefill: redigera-läge vinner, annars senaste val
   if (isEdit) {
     if (titleEl) titleEl.value = String(existingEvent.title || "");
@@ -1861,20 +2063,19 @@ applyAdminMode() {
       e.preventDefault();
 
       const title = (titleEl?.value || "").trim();
-      const date = (dateEl?.value || "").trim().replace(/\s+/g, "");
+      const date = this.normalizeISODate((dateEl?.value || "").trim().replace(/\s+/g, ""));
       const time = (timeEl?.value || "").trim();
       const place = (placeEl?.value || "").trim();
       const desc = (descEl?.value || "").trim();
       const icon = (iconEl?.value || "🗓️").trim();
       const createdBy = (createdByEl?.value || "").trim();
 
-      if (!title || !date || !createdBy) return;
-
-      // Kom ihåg senaste val
-      try {
-        prefs?.setString(SIGN_KEY, createdBy);
-        prefs?.setString(ICON_KEY, icon === "🎉" ? "🎉" : "🗓️");
-      } catch {}
+      if (!title || !createdBy) return;
+      if (!date) {
+        this.showStatus("Ange ett verkligt kalenderdatum.", "error");
+        dateEl?.focus();
+        return;
+      }
 
       const editId = (form.dataset.editId || "").trim();
 
@@ -1890,7 +2091,10 @@ applyAdminMode() {
           icon
         };
 
-        this.updateUserEvent(updatedEvent);
+        if (!this.updateUserEvent(updatedEvent)) {
+          this.showStatus("Händelsen kunde inte sparas.", "error");
+          return;
+        }
       } else {
         const newEvent = {
           id: `ev_${Date.now()}`,
@@ -1903,36 +2107,40 @@ applyAdminMode() {
           icon
         };
 
-        this.addUserEvent(newEvent);
+        if (!this.addUserEvent(newEvent)) {
+          this.showStatus("Händelsen kunde inte sparas.", "error");
+          return;
+        }
       }
 
-      if (typeof this.renderMonthsFromEvents === "function") {
-        this.renderMonthsFromEvents();
-      }
+      const savedSignature = prefs?.setString(SIGN_KEY, createdBy) !== false;
+      const savedIcon = prefs?.setString(ICON_KEY, icon === "🎉" ? "🎉" : "🗓️") !== false;
 
+      this.refreshViews();
       this.closeOverlay();
+      if (savedSignature && savedIcon) {
+        this.showStatus(isEdit ? "Händelsen uppdaterades." : "Händelsen skapades.");
+      }
     });
   }
 
   updateSaveEnabled();
+  this.showOverlay(titleEl);
 }, 
 openExportEventsOverlay() {
   const { overlay, overlayTitle, overlayText } = this.dom;
   if (!overlay || !overlayTitle || !overlayText) return;
 
-  this.lockTopControls();
-
   const data = this.dataStore.eventStore.exportEvents();
   const json = JSON.stringify(data, null, 2);
 
-  overlay.classList.remove("hidden");
   overlayTitle.textContent = "Exportera händelser";
 
   overlayText.innerHTML = `
     <div class="event-form" style="margin-top:0;">
       <div class="event-field">
         <label for="exportJson">Kopiera JSON</label>
-        <textarea id="exportJson" rows="10" style="width:100%">${json}</textarea>
+        <textarea id="exportJson" rows="10" style="width:100%" readonly></textarea>
       </div>
 
       <div class="event-actions">
@@ -1943,8 +2151,7 @@ openExportEventsOverlay() {
 
   const ta = document.getElementById("exportJson");
   if (ta) {
-    ta.focus();
-    ta.select();
+    ta.value = json;
   }
 
   const closeBtn = document.getElementById("exportCloseBtn");
@@ -1953,15 +2160,14 @@ openExportEventsOverlay() {
       this.closeOverlay();
     });
   }
+  this.showOverlay(ta);
+  requestAnimationFrame(() => ta?.select());
 },
 
 openImportEventsOverlay() {
   const { overlay, overlayTitle, overlayText } = this.dom;
   if (!overlay || !overlayTitle || !overlayText) return;
 
-  this.lockTopControls();
-
-  overlay.classList.remove("hidden");
   overlayTitle.textContent = "Importera händelser";
 
   overlayText.innerHTML = `
@@ -2010,19 +2216,19 @@ openImportEventsOverlay() {
 
       const imported = this.dataStore.eventStore.importEvents(parsed);
 
+      if (imported === null) return;
+
       if (imported.length === 0) {
         alert("Inget att importera. Kontrollera att varje post har title, date och createdBy.");
         return;
       }
 
-      this.renderMonthsFromEvents();
-      if (document.body.classList.contains("overview-mode")) {
-        this.buildOverview();
-      }
+      this.refreshViews();
       this.closeOverlay();
-      alert(`Importerade ${imported.length} händelser.`);
+      this.showStatus(`Importerade ${imported.length} händelser.`);
     });
   }
+  this.showOverlay(input);
 },
 
 openExportBirthdaysPrompt() {
@@ -2051,12 +2257,12 @@ openImportBirthdaysPrompt() {
   }
 
   const imported = this.dataStore.birthdayStore.importBirthdays(parsed);
-  this.renderMonthsFromEvents();
-  this.updateAllAges();
-  if (document.body.classList.contains("overview-mode")) {
-    this.buildOverview();
+  if (imported === null) {
+    alert("Importen avbröts. Listan måste innehålla minst en giltig födelsedag och inga felaktiga datum.");
+    return;
   }
-  alert(`Importerade ${imported.length} födelsedagar.`);
+  this.refreshViews();
+  this.showStatus(`Importerade ${imported.length} födelsedagar.`);
 },
 
 getUserEvents() {
@@ -2064,7 +2270,7 @@ getUserEvents() {
 },
 
 setUserEvents(events) {
-  this.dataStore.eventStore.replaceEvents(events);
+  return this.dataStore.eventStore.replaceEvents(events);
 },
 
 addUserEvent(ev) {
@@ -2090,14 +2296,14 @@ deleteUserEventById(id) {
 
  closeOverlay() {
   const { overlay } = this.dom;
-  if (!overlay) return;
+  if (!overlay || overlay.classList.contains("hidden")) return false;
 
   overlay.classList.add("hidden");
+  overlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("dialog-open");
   this.unlockTopControls();
-
-  if (!document.body.classList.contains("overview-mode") && this.selectedYear !== this.currentYear) {
-    this.resetYearToCurrent();
-  }
+  this.restoreDialogFocus();
+  return true;
 },
 
   bindEvents() {
@@ -2246,11 +2452,9 @@ deleteUserEventById(id) {
       this.dom.familyCodeInput.value = this.getCurrentFamilyCode();
     }
 
-    this.renderMonthsFromEvents();
-
     this.bindEvents();
     this.initYearSelect();
-    this.updateAllAges();
+    this.refreshViews();
     this.setOverviewButtonLabel();
   }
 };
