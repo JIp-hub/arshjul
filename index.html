@@ -178,7 +178,8 @@ body.dialog-open {
 }
 
 body.data-loading #months,
-body.data-loading #overview {
+body.data-loading #overview,
+body.data-loading #wheelView {
   opacity: 0.55;
 }
 
@@ -301,6 +302,309 @@ body.supabase-mode #exitAdminBtn {
     margin-bottom: 0.2rem;
   }
 
+
+  /* Primary navigation and circular wheel */
+  .primary-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0 0 0.75rem;
+  }
+
+  .primary-controls button,
+  .primary-controls select {
+    font: inherit;
+  }
+
+  .view-switch {
+    display: inline-flex;
+    padding: 0.2rem;
+    gap: 0.2rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #f1f5f9;
+  }
+
+  .view-switch button {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.45rem 0.8rem;
+    background: transparent;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  .view-switch button[aria-pressed="true"] {
+    background: #17365d;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+  }
+
+  .tools-panel {
+    margin: 0 0 1rem;
+  }
+
+  .tools-panel summary {
+    width: fit-content;
+    padding: 0.4rem 0;
+    color: #334155;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .tools-panel .controls {
+    margin: 0.5rem 0 0;
+    padding: 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  #wheelView {
+    display: none;
+    margin: 1rem 0 2rem;
+    padding: 0;
+    border: 0;
+  }
+
+  body.view-wheel:not(.overview-mode) #wheelView {
+    display: block;
+  }
+
+  body.view-wheel:not(.overview-mode) #months,
+  body.view-list:not(.overview-mode) #wheelView {
+    display: none;
+  }
+
+  body.view-list:not(.overview-mode) #months {
+    display: block;
+  }
+
+  .wheel-layout {
+    display: grid;
+    grid-template-columns: minmax(360px, 620px) minmax(280px, 1fr);
+    gap: clamp(1rem, 3vw, 2.5rem);
+    align-items: center;
+    max-width: 1120px;
+  }
+
+  .wheel-stage {
+    min-width: 0;
+  }
+
+  .year-wheel {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: min(68vh, 620px);
+    overflow: visible;
+  }
+
+  #wheelRotator {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: rotate(var(--wheel-rotation, 0deg));
+  }
+
+  .wheel-sector {
+    cursor: pointer;
+    outline: none;
+  }
+
+  .wheel-sector-path {
+    fill: var(--sector-fill);
+    stroke: rgba(255, 255, 255, 0.9);
+    stroke-width: 2;
+    transition: filter 140ms ease, stroke-width 140ms ease;
+  }
+
+  .wheel-sector:hover .wheel-sector-path,
+  .wheel-sector:focus .wheel-sector-path {
+    filter: brightness(0.96) saturate(1.08);
+    stroke: #17223b;
+    stroke-width: 4;
+  }
+
+  .wheel-sector.is-selected .wheel-sector-path {
+    filter: brightness(0.9) saturate(1.12);
+    stroke: #17223b;
+    stroke-width: 5;
+  }
+
+  .wheel-current-ring {
+    fill: none;
+    stroke: #f59e0b;
+    stroke-width: 8;
+    pointer-events: none;
+  }
+
+  .wheel-month-label,
+  .wheel-count-label {
+    fill: #17223b;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .wheel-month-label {
+    font-size: 15px;
+    font-weight: 750;
+  }
+
+  .wheel-count-badge {
+    fill: rgba(255, 255, 255, 0.82);
+    stroke: rgba(23, 34, 59, 0.16);
+    pointer-events: none;
+  }
+
+  .wheel-count-label {
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .wheel-center {
+    fill: #fff;
+    stroke: #dbe4ee;
+    stroke-width: 2;
+    pointer-events: none;
+  }
+
+  .wheel-center-month,
+  .wheel-center-year {
+    fill: #17223b;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+  }
+
+  .wheel-center-month {
+    font-size: 19px;
+    font-weight: 800;
+  }
+
+  .wheel-center-year {
+    font-size: 15px;
+    fill: #64748b;
+  }
+
+  .wheel-legend {
+    margin: 0.4rem 0 0;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  .current-month-key {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-right: 0.3rem;
+    border: 3px solid #f59e0b;
+    border-radius: 50%;
+    vertical-align: -0.08rem;
+  }
+
+  .wheel-month-panel {
+    align-self: stretch;
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+    border: 1px solid #dbe4ee;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fff, #f8fafc);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .wheel-panel-kicker {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .wheel-month-panel h2 {
+    margin: 0.15rem 0 0.25rem;
+    font-size: clamp(1.55rem, 3vw, 2.1rem);
+  }
+
+  .wheel-month-summary {
+    margin: 0 0 1rem;
+    color: #475569;
+  }
+
+  .wheel-month-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .wheel-month-list li {
+    padding: 0.55rem 0;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .wheel-empty {
+    margin: 1rem 0 0;
+    padding: 0.85rem;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  body.controls-locked .primary-controls,
+  body.controls-locked .tools-panel {
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  @media (max-width: 800px) {
+    .wheel-layout {
+      grid-template-columns: 1fr;
+      align-items: start;
+    }
+
+    .year-wheel {
+      max-height: none;
+    }
+  }
+
+  @media (max-width: 600px) {
+    h1 {
+      margin-top: 0.25rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .primary-controls {
+      gap: 0.5rem;
+    }
+
+    .primary-controls > button {
+      padding: 0.45rem 0.6rem;
+    }
+
+    .view-switch {
+      width: 100%;
+    }
+
+    .view-switch button {
+      flex: 1;
+    }
+
+    .wheel-layout {
+      gap: 0.75rem;
+    }
+
+    .wheel-month-panel {
+      border-radius: 12px;
+    }
+
+    .wheel-month-label {
+      font-size: 14px;
+    }
+  }
+
   /* Dölj ålder i normal vy */
   .age {
     display: none !important;
@@ -317,6 +621,9 @@ body.supabase-mode #exitAdminBtn {
 
   /* Dölj kontroller + overlay + originalvyn (vi skriver ut print-wrappern i stället) */
   .controls,
+  .primary-controls,
+  .tools-panel,
+  #wheelView,
   #overview,
   #overlay,
   #months {
@@ -422,7 +729,7 @@ body.controls-locked #copyHelperOverlay {
 </style>
   
 </head>
-<body>
+<body class="view-wheel">
 
 <h1>Årshjul</h1>
 
@@ -444,37 +751,67 @@ body.controls-locked #copyHelperOverlay {
   </div>
 </section>
 
-<div class="controls">
-  <button id="printBirthdaysBtn" type="button">
-    Skriv ut – endast födelsedagar
-  </button>
-  <button id="copyBirthdaysBtn" type="button">Kopiera födelsedagslista</button>
+<div class="primary-controls" aria-label="Vy och år">
+  <div class="view-switch" role="group" aria-label="Välj vy">
+    <button id="showWheelBtn" type="button" aria-pressed="true">Årshjul</button>
+    <button id="showListBtn" type="button" aria-pressed="false">Lista</button>
+  </div>
 
   <button id="addEventBtn" type="button">Lägg till händelse</button>
-
-  <button id="exportEventsBtn" type="button">Exportera händelser</button>
-  <button id="importEventsBtn" type="button">Importera händelser</button>
-  <button id="exportBirthdaysBtn" class="admin-only" type="button">Exportera födelsedagar</button>
-  <button id="importBirthdaysBtn" class="admin-only" type="button">Importera födelsedagar</button>
-  <button id="exitAdminBtn" class="admin-only" type="button">Avsluta admin</button>
-
-  <button id="toggleOverviewBtn" type="button">
-    Visa översikt
-  </button>
+  <button id="toggleOverviewBtn" type="button">Visa översikt</button>
 
   <label class="year-control" for="yearSelect">År:</label>
   <select id="yearSelect" class="year-control" aria-label="Välj år"></select>
-
-  <label class="admin-only legacy-family-control" for="familyCodeInput">Familj:</label>
-  <input class="admin-only legacy-family-control" id="familyCodeInput" type="text" value="default" size="10" aria-label="Familjekod">
-  <button class="admin-only legacy-family-control" id="setFamilyCodeBtn" type="button">Byt familj</button>
 </div>
+
+<details class="tools-panel">
+  <summary>Fler verktyg</summary>
+  <div class="controls">
+    <button id="printBirthdaysBtn" type="button">Skriv ut – endast födelsedagar</button>
+    <button id="copyBirthdaysBtn" type="button">Kopiera födelsedagslista</button>
+    <button id="exportEventsBtn" type="button">Exportera händelser</button>
+    <button id="importEventsBtn" type="button">Importera händelser</button>
+    <button id="exportBirthdaysBtn" class="admin-only" type="button">Exportera födelsedagar</button>
+    <button id="importBirthdaysBtn" class="admin-only" type="button">Importera födelsedagar</button>
+    <button id="exitAdminBtn" class="admin-only" type="button">Avsluta admin</button>
+
+    <label class="admin-only legacy-family-control" for="familyCodeInput">Familj:</label>
+    <input class="admin-only legacy-family-control" id="familyCodeInput" type="text" value="default" size="10" aria-label="Familjekod">
+    <button class="admin-only legacy-family-control" id="setFamilyCodeBtn" type="button">Byt familj</button>
+  </div>
+</details>
 
 <p id="appStatus" class="status-message hidden" role="status" aria-live="polite"></p>
 
 <!-- Print-only (byggs av JS precis innan utskrift) -->
 <div id="printMeta" class="print-only"></div>
 <div id="printWrap" class="print-only"></div>
+
+
+<section id="wheelView" aria-labelledby="wheelViewTitle">
+  <h2 id="wheelViewTitle" class="hidden">Cirkulärt årshjul</h2>
+  <div class="wheel-layout">
+    <div class="wheel-stage">
+      <svg id="yearWheel" class="year-wheel" viewBox="0 0 520 520" role="group" aria-label="Årshjul med tolv valbara månader">
+        <g id="wheelRotator">
+          <g id="wheelSectors"></g>
+        </g>
+        <circle class="wheel-center" cx="260" cy="260" r="82"></circle>
+        <text id="wheelCenterMonth" class="wheel-center-month" x="260" y="250"></text>
+        <text id="wheelCenterYear" class="wheel-center-year" x="260" y="278"></text>
+      </svg>
+      <p class="wheel-legend"><span class="current-month-key" aria-hidden="true"></span>Gul ring visar aktuell månad</p>
+    </div>
+
+    <aside id="wheelMonthPanel" class="wheel-month-panel" aria-labelledby="wheelMonthTitle" aria-live="polite">
+      <p class="wheel-panel-kicker">Vald månad</p>
+      <h2 id="wheelMonthTitle"></h2>
+      <p id="wheelMonthSummary" class="wheel-month-summary"></p>
+      <ul id="wheelMonthList" class="wheel-month-list"></ul>
+      <p id="wheelMonthEmpty" class="wheel-empty hidden">Inga födelsedagar eller händelser den här månaden.</p>
+    </aside>
+  </div>
+</section>
 
 <main id="months">
 
@@ -572,6 +909,9 @@ const App = {
   remoteAdapter: null,
   currentUser: null,
   currentMembership: null,
+  primaryView: "wheel",
+  previousPrimaryView: "wheel",
+  selectedWheelMonth: new Date().getMonth(),
   familyCodeStorageKey: "arshjul_family_code_v1",
   adminModeStorageKey: "arshjul_admin_mode_v1",
   defaultFamilyCode: "default",
@@ -664,6 +1004,15 @@ const App = {
 
     openSound: null,
     yearSelect: null,
+    showWheelBtn: null,
+    showListBtn: null,
+    wheelSectors: null,
+    wheelCenterMonth: null,
+    wheelCenterYear: null,
+    wheelMonthTitle: null,
+    wheelMonthSummary: null,
+    wheelMonthList: null,
+    wheelMonthEmpty: null,
     toggleOverviewBtn: null,
     overviewGrid: null,
     printMeta: null,
@@ -1035,6 +1384,7 @@ handleStorageFailure(action, error) {
 
 refreshViews() {
   this.renderMonthsFromEvents();
+  this.renderWheel();
   this.updateAllAges();
   if (document.body.classList.contains("overview-mode")) {
     this.buildOverview();
@@ -1343,6 +1693,8 @@ updateAuthorizationUI() {
     this.dom.addEventBtn,
     this.dom.exportEventsBtn,
     this.dom.importEventsBtn,
+    this.dom.showWheelBtn,
+    this.dom.showListBtn,
     this.dom.toggleOverviewBtn,
     this.dom.yearSelect
   ].forEach((control) => {
@@ -1424,6 +1776,15 @@ cacheDom() {
 
   this.dom.openSound = document.getElementById("openSound");
   this.dom.yearSelect = document.getElementById("yearSelect");
+  this.dom.showWheelBtn = document.getElementById("showWheelBtn");
+  this.dom.showListBtn = document.getElementById("showListBtn");
+  this.dom.wheelSectors = document.getElementById("wheelSectors");
+  this.dom.wheelCenterMonth = document.getElementById("wheelCenterMonth");
+  this.dom.wheelCenterYear = document.getElementById("wheelCenterYear");
+  this.dom.wheelMonthTitle = document.getElementById("wheelMonthTitle");
+  this.dom.wheelMonthSummary = document.getElementById("wheelMonthSummary");
+  this.dom.wheelMonthList = document.getElementById("wheelMonthList");
+  this.dom.wheelMonthEmpty = document.getElementById("wheelMonthEmpty");
   this.dom.toggleOverviewBtn = document.getElementById("toggleOverviewBtn");
   this.dom.overviewGrid = document.getElementById("overviewGrid");
   this.dom.printMeta = document.getElementById("printMeta");
@@ -1456,6 +1817,8 @@ cacheDom() {
   if (this.dom.printBtn) this.dom.printBtn.disabled = true;
   if (this.dom.copyBtn) this.dom.copyBtn.disabled = true;
   if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = true;
+  if (this.dom.showWheelBtn) this.dom.showWheelBtn.disabled = true;
+  if (this.dom.showListBtn) this.dom.showListBtn.disabled = true;
   if (this.dom.addEventBtn) this.dom.addEventBtn.disabled = true;
 
   if (this.dom.exportEventsBtn) this.dom.exportEventsBtn.disabled = true;
@@ -1472,6 +1835,8 @@ cacheDom() {
   if (this.dom.printBtn) this.dom.printBtn.disabled = false;
   if (this.dom.copyBtn) this.dom.copyBtn.disabled = false;
   if (this.dom.toggleOverviewBtn) this.dom.toggleOverviewBtn.disabled = false;
+  if (this.dom.showWheelBtn) this.dom.showWheelBtn.disabled = false;
+  if (this.dom.showListBtn) this.dom.showListBtn.disabled = false;
   if (this.dom.addEventBtn) this.dom.addEventBtn.disabled = false;
 
   if (this.dom.exportEventsBtn) this.dom.exportEventsBtn.disabled = false;
@@ -1758,12 +2123,225 @@ applyAdminMode() {
     });
   },
 
+
+  capitalizeMonth(monthKey) {
+    const value = String(monthKey || "");
+    return value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
+  },
+
+  getEventsByMonth() {
+    const byMonth = new Map();
+    this.monthOrder.forEach((month) => byMonth.set(month, []));
+
+    this.getCombinedEvents().forEach((event) => {
+      const monthKey = String(event?.month || "").toLowerCase().trim();
+      if (byMonth.has(monthKey)) byMonth.get(monthKey).push(event);
+    });
+
+    byMonth.forEach((events) => {
+      events.sort((a, b) => {
+        const dayDifference = (a.day || 0) - (b.day || 0);
+        if (dayDifference !== 0) return dayDifference;
+        return (a.type === "birthday" ? 0 : 1) - (b.type === "birthday" ? 0 : 1);
+      });
+    });
+
+    return byMonth;
+  },
+
+  polarPoint(radius, angleDegrees) {
+    const radians = (angleDegrees * Math.PI) / 180;
+    return {
+      x: 260 + radius * Math.cos(radians),
+      y: 260 + radius * Math.sin(radians)
+    };
+  },
+
+  wheelSectorPath(index) {
+    const startAngle = -105 + index * 30;
+    const endAngle = startAngle + 30;
+    const outerStart = this.polarPoint(238, startAngle);
+    const outerEnd = this.polarPoint(238, endAngle);
+    const innerEnd = this.polarPoint(92, endAngle);
+    const innerStart = this.polarPoint(92, startAngle);
+
+    return [
+      `M ${outerStart.x.toFixed(2)} ${outerStart.y.toFixed(2)}`,
+      `A 238 238 0 0 1 ${outerEnd.x.toFixed(2)} ${outerEnd.y.toFixed(2)}`,
+      `L ${innerEnd.x.toFixed(2)} ${innerEnd.y.toFixed(2)}`,
+      `A 92 92 0 0 0 ${innerStart.x.toFixed(2)} ${innerStart.y.toFixed(2)}`,
+      "Z"
+    ].join(" ");
+  },
+
+  describeWheelMonth(monthKey, events) {
+    const birthdays = events.filter((event) => event.type === "birthday").length;
+    const familyEvents = events.length - birthdays;
+    const birthdayText = `${birthdays} ${birthdays === 1 ? "födelsedag" : "födelsedagar"}`;
+    const eventText = `${familyEvents} ${familyEvents === 1 ? "händelse" : "händelser"}`;
+    return `${this.capitalizeMonth(monthKey)}: ${birthdayText} och ${eventText}`;
+  },
+
+  setPrimaryView(view) {
+    const normalized = view === "list" ? "list" : "wheel";
+    this.primaryView = normalized;
+    document.body.classList.remove("overview-mode", "view-wheel", "view-list");
+    document.body.classList.add(`view-${normalized}`);
+
+    if (this.dom.showWheelBtn) this.dom.showWheelBtn.setAttribute("aria-pressed", String(normalized === "wheel"));
+    if (this.dom.showListBtn) this.dom.showListBtn.setAttribute("aria-pressed", String(normalized === "list"));
+    this.setOverviewButtonLabel();
+  },
+
+  selectWheelMonth(index, { focus = false } = {}) {
+    const normalized = ((Number(index) % 12) + 12) % 12;
+    this.selectedWheelMonth = normalized;
+    this.renderWheel();
+
+    if (focus) {
+      requestAnimationFrame(() => {
+        this.dom.wheelSectors
+          ?.querySelector(`[data-month-index="${normalized}"]`)
+          ?.focus();
+      });
+    }
+  },
+
+  handleWheelKeydown(event, index) {
+    const keySteps = {
+      ArrowRight: 1,
+      ArrowDown: 1,
+      ArrowLeft: -1,
+      ArrowUp: -1
+    };
+
+    if (Object.prototype.hasOwnProperty.call(keySteps, event.key)) {
+      event.preventDefault();
+      this.selectWheelMonth(index + keySteps[event.key], { focus: true });
+      return;
+    }
+
+    if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      this.selectWheelMonth(event.key === "Home" ? 0 : 11, { focus: true });
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      this.selectWheelMonth(index);
+    }
+  },
+
+  renderWheelMonthPanel(eventsByMonth) {
+    const monthKey = this.monthOrder[this.selectedWheelMonth];
+    const events = eventsByMonth.get(monthKey) || [];
+    const birthdays = events.filter((event) => event.type === "birthday").length;
+    const familyEvents = events.length - birthdays;
+
+    if (this.dom.wheelMonthTitle) {
+      this.dom.wheelMonthTitle.textContent = `${this.capitalizeMonth(monthKey)} ${this.selectedYear}`;
+    }
+    if (this.dom.wheelMonthSummary) {
+      this.dom.wheelMonthSummary.textContent = this.describeWheelMonth(monthKey, events).split(": ")[1];
+    }
+    if (this.dom.wheelMonthList) {
+      this.dom.wheelMonthList.replaceChildren();
+      events.forEach((event) => {
+        const item = document.createElement("li");
+        item.appendChild(this.createDayItemButton(event));
+        this.dom.wheelMonthList.appendChild(item);
+      });
+    }
+    this.dom.wheelMonthEmpty?.classList.toggle("hidden", events.length > 0);
+    if (this.dom.wheelMonthSummary) {
+      this.dom.wheelMonthSummary.dataset.birthdays = String(birthdays);
+      this.dom.wheelMonthSummary.dataset.events = String(familyEvents);
+    }
+  },
+
+  renderWheel() {
+    const root = this.dom.wheelSectors;
+    if (!root) return;
+
+    const namespace = "http://www.w3.org/2000/svg";
+    const colors = [
+      "#dbeafe", "#e0e7ff", "#ede9fe", "#fce7f3",
+      "#ffe4e6", "#ffedd5", "#fef3c7", "#ecfccb",
+      "#d1fae5", "#ccfbf1", "#cffafe", "#e0f2fe"
+    ];
+    const eventsByMonth = this.getEventsByMonth();
+    root.replaceChildren();
+
+    this.monthOrder.forEach((monthKey, index) => {
+      const events = eventsByMonth.get(monthKey) || [];
+      const group = document.createElementNS(namespace, "g");
+      group.classList.add("wheel-sector");
+      if (index === this.selectedWheelMonth) group.classList.add("is-selected");
+      group.dataset.monthIndex = String(index);
+      group.setAttribute("role", "button");
+      group.setAttribute("tabindex", "0");
+      group.setAttribute("aria-pressed", String(index === this.selectedWheelMonth));
+      group.setAttribute("aria-label", this.describeWheelMonth(monthKey, events));
+      if (index === new Date().getMonth()) group.setAttribute("aria-current", "date");
+      group.style.setProperty("--sector-fill", colors[index]);
+
+      const path = document.createElementNS(namespace, "path");
+      path.classList.add("wheel-sector-path");
+      path.setAttribute("d", this.wheelSectorPath(index));
+      group.appendChild(path);
+
+      if (index === new Date().getMonth()) {
+        const currentRing = document.createElementNS(namespace, "path");
+        currentRing.classList.add("wheel-current-ring");
+        currentRing.setAttribute("d", this.wheelSectorPath(index));
+        group.appendChild(currentRing);
+      }
+
+      const angle = -90 + index * 30;
+      const labelPoint = this.polarPoint(166, angle);
+      const label = document.createElementNS(namespace, "text");
+      label.classList.add("wheel-month-label");
+      label.setAttribute("x", labelPoint.x.toFixed(2));
+      label.setAttribute("y", (labelPoint.y - (events.length ? 7 : 0)).toFixed(2));
+      label.textContent = this.capitalizeMonth(monthKey);
+      group.appendChild(label);
+
+      if (events.length > 0) {
+        const countPoint = this.polarPoint(166, angle);
+        const badge = document.createElementNS(namespace, "circle");
+        badge.classList.add("wheel-count-badge");
+        badge.setAttribute("cx", countPoint.x.toFixed(2));
+        badge.setAttribute("cy", (countPoint.y + 16).toFixed(2));
+        badge.setAttribute("r", "10");
+        group.appendChild(badge);
+
+        const count = document.createElementNS(namespace, "text");
+        count.classList.add("wheel-count-label");
+        count.setAttribute("x", countPoint.x.toFixed(2));
+        count.setAttribute("y", (countPoint.y + 16).toFixed(2));
+        count.textContent = String(events.length);
+        group.appendChild(count);
+      }
+
+      group.addEventListener("click", () => this.selectWheelMonth(index));
+      group.addEventListener("keydown", (event) => this.handleWheelKeydown(event, index));
+      root.appendChild(group);
+    });
+
+    const selectedMonth = this.monthOrder[this.selectedWheelMonth];
+    if (this.dom.wheelCenterMonth) this.dom.wheelCenterMonth.textContent = this.capitalizeMonth(selectedMonth);
+    if (this.dom.wheelCenterYear) this.dom.wheelCenterYear.textContent = String(this.selectedYear);
+    this.renderWheelMonthPanel(eventsByMonth);
+  },
+
   setOverviewButtonLabel() {
     const btn = this.dom.toggleOverviewBtn;
     if (!btn) return;
 
     const isOverview = document.body.classList.contains("overview-mode");
-    btn.textContent = isOverview ? "Tillbaka till lista" : "Visa översikt";
+    const returnView = this.previousPrimaryView === "list" ? "listan" : "årshjulet";
+    btn.textContent = isOverview ? `Tillbaka till ${returnView}` : "Visa översikt";
   },
 
   renderMonthsFromEvents() {
@@ -2244,10 +2822,11 @@ applyAdminMode() {
     const willShow = !document.body.classList.contains("overview-mode");
 
     if (willShow) {
+      this.previousPrimaryView = this.primaryView;
       document.body.classList.add("overview-mode");
       this.buildOverview();
     } else {
-      document.body.classList.remove("overview-mode");
+      this.setPrimaryView(this.previousPrimaryView);
     }
 
     this.setOverviewButtonLabel();
@@ -2789,6 +3368,8 @@ deleteUserEventById(id) {
   bindEvents() {
   const {
     toggleOverviewBtn,
+    showWheelBtn,
+    showListBtn,
     closeBtn,
     overlay,
     printBtn,
@@ -2823,6 +3404,14 @@ deleteUserEventById(id) {
     importLocalEventsBtn.addEventListener("click", async () => {
       await this.importLocalEvents();
     });
+  }
+
+  if (showWheelBtn) {
+    showWheelBtn.addEventListener("click", () => this.setPrimaryView("wheel"));
+  }
+
+  if (showListBtn) {
+    showListBtn.addEventListener("click", () => this.setPrimaryView("list"));
   }
 
   if (toggleOverviewBtn) {
@@ -2955,6 +3544,7 @@ deleteUserEventById(id) {
 
     this.bindEvents();
     this.initYearSelect();
+    this.setPrimaryView("wheel");
     await this.initializeBackend();
     this.refreshViews();
     this.setOverviewButtonLabel();
