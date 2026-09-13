@@ -2,11 +2,13 @@
 
 Detta är genomförandeplanen för nästa fas. Den beskriver Supabase-lösningen men skapar eller ändrar inga externa resurser.
 
+Den lokala förberedelsen B1 finns nu på feature-branchen. Se `SUPABASE_SETUP.md` för aktivering, bootstrap, migrering och återstående B2-steg. Inga externa resurser aktiveras av B1-konfigurationen.
+
 ## Minsta V1
 
 1. Skapa ett Supabase-projekt och konfigurera Magic Link med GitHub Pages-adressen som tillåten redirect.
 2. Lägg databasschemat och samtliga RLS-policyer i en versionshanterad SQL-migration.
-3. Skapa den första familjen och dess första administratör manuellt. Lägg till övriga användare manuellt i `family_members` efter deras första Magic Link-inloggning. Ett automatiserat inbjudningsflöde väntar.
+3. Skapa den första familjen och dess första administratör manuellt. Skapa övriga Auth-konton och lägg till dem manuellt i `family_members`; därefter kan de logga in med Magic Link. Ett automatiserat inbjudningsflöde väntar.
 4. Implementera en Supabase-baserad variant bakom den befintliga DataStore-gränsen. Nuvarande vyer ska fortsätta anropa samma list-, create-, update- och delete-metoder.
 5. Flytta både händelser och födelsedagar till den gemensamma databasen. Privat källdata används bara vid en kontrollerad engångsmigrering och läggs aldrig i repot.
 6. Hämta data vid sidöppning samt efter lyckade ändringar. Realtime väntar.
@@ -31,6 +33,7 @@ Detta är genomförandeplanen för nästa fas. Den beskriver Supabase-lösningen
 - `role text not null check (role in ('member', 'admin'))`
 - `created_at timestamptz not null default now()`
 - `primary key (family_id, user_id)`
+- `unique (user_id)` i första V1, som medvetet begränsar varje användare till en familj
 
 Medlemsraden, tillsammans med den inloggade användarens `auth.uid()`, är säkerhetsgränsen.
 
@@ -68,7 +71,7 @@ En databasfunktion/check ska dessutom verifiera att månad och dag bildar ett ve
 RLS aktiveras på alla fyra publika tabeller. Klientappen använder endast Supabase publishable/anon key; service role får aldrig finnas i webbläsaren.
 
 - `families`: en inloggad användare får läsa familjer där en matchande rad finns i `family_members`. Endast administratör får uppdatera familjens namn eller inbjudningskod.
-- `family_members`: medlem får läsa medlemslistan och visningsnamnen för sina familjer. En användare får uppdatera sitt eget visningsnamn men inte `family_id`, `user_id` eller `role`. Nya medlemskap och rolländringar görs manuellt med betrodd server-/dashboardbehörighet i första V1.
+- `family_members`: medlem får läsa medlemslistan och visningsnamnen för sin familj. Medlemskap, visningsnamn och roller ändras manuellt med betrodd server-/dashboardbehörighet i första V1.
 - `events` select: tillåts när `family_members` innehåller `(events.family_id, auth.uid())`.
 - `events` insert: samma medlemskontroll och krav på `created_by = auth.uid()`.
 - `events` update/delete: tillåts när användaren är `created_by`, eller har rollen `admin` i samma familj. `family_id` och `created_by` ska inte kunna bytas av vanlig användare.
@@ -79,14 +82,14 @@ Policyerna bör använda en liten `security definer`-hjälpfunktion för medlems
 
 ## DataStore och migrering
 
-Den befintliga DataStore-gränsen behålls. Fas B inför asynkrona implementationer för `eventStore` och `birthdayStore`, medan vyerna fortsätter få samma normaliserade objekt som i fas A. UI:t behöver därför bara kompletteras med väntelägen och `await` där data hämtas eller ändras.
+Den befintliga DataStore-gränsen behålls. B1 har infört asynkrona Supabase-implementationer för `eventStore` och `birthdayStore`, medan vyerna fortsätter få samma normaliserade objekt som i fas A. Utan Supabase-konfiguration används fortfarande den lokala implementationen.
 
 Migreringen görs i denna ordning:
 
 1. Exportera lokal händelse- och födelsedagsdata från den betrodda enhet som har den slutliga familjedatan.
 2. Validera exporten lokalt med samma kalenderregler som i fas A.
 3. Skapa familj och medlemskap.
-4. Importera poster med rätt `family_id`; sätt `created_by` för historiska händelser till administratören eller dokumentera en särskild migreringsägare.
+4. Låt varje användare importera de lokala händelser som personen själv ska äga; adaptern sätter rätt `family_id` och `created_by = auth.uid()`.
 5. Jämför antal och stickprov innan appen byter DataStore-implementation.
 6. Behåll lokal data orörd som rollback-kopia tills den gemensamma versionen är verifierad på minst två enheter.
 

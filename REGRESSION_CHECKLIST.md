@@ -35,3 +35,15 @@ Kör denna lista innan du börjar på en ny feature och efter varje större änd
 ## 6) Snabb sanity efter regressionfix
 - [ ] Upprepa punkt 2 + 3 (print + kopiera) efter kodändring.
 - [ ] Console fortfarande 0 fel.
+
+## 7) Supabase-läge (B1/B2)
+- [ ] Utloggad användare ser inloggningsformuläret men inga privata familjedata.
+- [ ] Inloggad användare utan medlemskap ser ett tydligt vänteläge och inga privata data.
+- [ ] Medlem ser familjens händelser och födelsedagar.
+- [ ] Medlem kan skapa, redigera och radera egna händelser men saknar knappar för andras händelser.
+- [ ] Admin kan redigera och radera samtliga familjehändelser.
+- [ ] Endast admin ser födelsedagsimporten.
+- [ ] Lokala händelser importeras additivt, ägs av den inloggade användaren och finns kvar lokalt.
+- [ ] Familjekodens lokala kontroller är dolda och en känd kod ger ingen databasåtkomst.
+- [ ] Utloggning tömmer vyerna och minnescachen.
+- [ ] Laddnings- och fellägen återaktiverar rätt kontroller när operationen är klar.

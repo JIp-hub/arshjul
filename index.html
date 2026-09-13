@@ -136,6 +136,62 @@ body.dialog-open {
   color: #8a1f1f;
 }
 
+.auth-panel {
+  max-width: 720px;
+  margin: 0 0 1rem;
+  padding: 1rem;
+  border: 1px solid #d8e1ec;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.auth-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.auth-panel p {
+  margin: 0.35rem 0;
+}
+
+.auth-form,
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+  margin-top: 0.75rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.25rem;
+  flex: 1 1 260px;
+  font-weight: 600;
+}
+
+.auth-form input,
+.auth-form button,
+.auth-actions button {
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+}
+
+body.data-loading #months,
+body.data-loading #overview {
+  opacity: 0.55;
+}
+
+body.controls-locked .auth-panel {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+body.supabase-mode .legacy-family-control,
+body.supabase-mode #exitAdminBtn {
+  display: none !important;
+}
+
 @media (max-width: 600px) {
   body {
     margin: 1rem;
@@ -370,6 +426,24 @@ body.controls-locked #copyHelperOverlay {
 
 <h1>Årshjul</h1>
 
+<section id="authPanel" class="auth-panel hidden" aria-labelledby="authPanelTitle">
+  <h2 id="authPanelTitle">Familjedata</h2>
+  <p id="authSummary" aria-live="polite"></p>
+
+  <form id="magicLinkForm" class="auth-form hidden">
+    <label for="authEmail">
+      E-postadress
+      <input id="authEmail" name="email" type="email" autocomplete="email" required>
+    </label>
+    <button id="magicLinkBtn" type="submit">Skicka inloggningslänk</button>
+  </form>
+
+  <div id="authActions" class="auth-actions hidden">
+    <button id="importLocalEventsBtn" class="hidden" type="button">Importera lokala händelser</button>
+    <button id="signOutBtn" type="button">Logga ut</button>
+  </div>
+</section>
+
 <div class="controls">
   <button id="printBirthdaysBtn" type="button">
     Skriv ut – endast födelsedagar
@@ -391,9 +465,9 @@ body.controls-locked #copyHelperOverlay {
   <label class="year-control" for="yearSelect">År:</label>
   <select id="yearSelect" class="year-control" aria-label="Välj år"></select>
 
-  <label class="admin-only" for="familyCodeInput">Familj:</label>
-  <input class="admin-only" id="familyCodeInput" type="text" value="default" size="10" aria-label="Familjekod">
-  <button class="admin-only" id="setFamilyCodeBtn" type="button">Byt familj</button>
+  <label class="admin-only legacy-family-control" for="familyCodeInput">Familj:</label>
+  <input class="admin-only legacy-family-control" id="familyCodeInput" type="text" value="default" size="10" aria-label="Familjekod">
+  <button class="admin-only legacy-family-control" id="setFamilyCodeBtn" type="button">Byt familj</button>
 </div>
 
 <p id="appStatus" class="status-message hidden" role="status" aria-live="polite"></p>
@@ -480,6 +554,8 @@ body.controls-locked #copyHelperOverlay {
   </div>
 </div>
 
+<script src="./supabase-config.js"></script>
+<script src="./js/supabase-adapter.js"></script>
 <script>
 const App = {
   /* =========================
@@ -490,6 +566,12 @@ const App = {
   _isPreparingPrint: false,
   _dialogReturnFocus: null,
   _pendingStatus: null,
+  _authRequestId: 0,
+  backendMode: "local",
+  localDataStore: null,
+  remoteAdapter: null,
+  currentUser: null,
+  currentMembership: null,
   familyCodeStorageKey: "arshjul_family_code_v1",
   adminModeStorageKey: "arshjul_admin_mode_v1",
   defaultFamilyCode: "default",
@@ -571,6 +653,14 @@ const App = {
     familyCodeInput: null,
     setFamilyCodeBtn: null,
     appStatus: null,
+    authPanel: null,
+    authSummary: null,
+    magicLinkForm: null,
+    authEmail: null,
+    magicLinkBtn: null,
+    authActions: null,
+    signOutBtn: null,
+    importLocalEventsBtn: null,
 
     openSound: null,
     yearSelect: null,
@@ -951,6 +1041,322 @@ refreshViews() {
   }
 },
 
+isSupabaseMode() {
+  return this.backendMode === "supabase" || this.backendMode === "supabase-error";
+},
+
+isAdmin() {
+  if (this.isSupabaseMode()) return this.currentMembership?.role === "admin";
+  return document.body.classList.contains("admin-mode");
+},
+
+hasRemoteFamilyAccess() {
+  return Boolean(this.currentUser && this.currentMembership);
+},
+
+canManageEvent(event) {
+  if (!this.isSupabaseMode()) return true;
+  return Boolean(this.remoteAdapter?.canManageEvent(event));
+},
+
+canAnnounceMutationSuccess() {
+  return !this.isSupabaseMode() || !this.remoteAdapter?.lastMutationRefreshFailed;
+},
+
+createLockedDataStore() {
+  return {
+    eventStore: {
+      listEvents: () => [],
+      exportEvents: () => [],
+      replaceEvents: async () => false,
+      createEvent: async () => false,
+      updateEvent: async () => false,
+      deleteEventById: async () => false,
+      importEvents: async () => null
+    },
+    birthdayStore: {
+      listBirthdays: () => [],
+      exportBirthdays: () => [],
+      importBirthdays: async () => null
+    },
+    prefs: this.localDataStore?.prefs
+  };
+},
+
+setDataLoading(isLoading, message = "") {
+  document.body.classList.toggle("data-loading", Boolean(isLoading));
+  if (message) this.showStatus(message);
+  this.updateAuthorizationUI();
+},
+
+handleRemoteError(action, error) {
+  console.error(`Supabase: kunde inte ${action}.`, error);
+  this.showStatus(`Kunde inte ${action}. Försök igen eller logga in på nytt.`, "error");
+},
+
+async runDataMutation(message, operation) {
+  if (this.isSupabaseMode()) this.setDataLoading(true, message);
+  try {
+    return await operation();
+  } finally {
+    if (this.isSupabaseMode()) this.setDataLoading(false);
+  }
+},
+
+async initializeBackend() {
+  this.localDataStore = this.dataStore;
+  const config = window.ARSHJUL_CONFIG || {};
+
+  let configState;
+  try {
+    const hasConfiguredValue = Boolean(
+      String(config.supabaseUrl || "").trim() ||
+      String(config.supabasePublishableKey || "").trim()
+    );
+    if (!window.ArshjulSupabase && hasConfiguredValue) {
+      throw new Error("Supabase-adaptern kunde inte laddas.");
+    }
+    configState = window.ArshjulSupabase
+      ? window.ArshjulSupabase.validateConfig(config)
+      : { configured: false };
+  } catch (error) {
+    this.backendMode = "supabase-error";
+    document.body.classList.add("supabase-mode");
+    this.dataStore = this.createLockedDataStore();
+    this.handleRemoteError("läsa Supabase-konfigurationen", error);
+    this.updateAuthorizationUI();
+    return;
+  }
+
+  if (!configState?.configured) {
+    this.backendMode = "local";
+    document.body.classList.remove("supabase-mode");
+    this.applyAdminMode();
+    this.updateAuthorizationUI();
+    return;
+  }
+
+  this.backendMode = "supabase";
+  document.body.classList.add("supabase-mode");
+  document.body.classList.remove("admin-mode");
+  this.dataStore = this.createLockedDataStore();
+  this.setDataLoading(true, "Ansluter till familjens data …");
+
+  try {
+    this.remoteAdapter = await window.ArshjulSupabase.create(config, {
+      onError: (action, error) => this.handleRemoteError(action, error)
+    });
+    this.dataStore = {
+      eventStore: this.remoteAdapter.eventStore,
+      birthdayStore: this.remoteAdapter.birthdayStore,
+      prefs: this.localDataStore.prefs
+    };
+
+    this.remoteAdapter.onAuthChange((session) => {
+      this.handleRemoteSession(session);
+    });
+
+    const session = await this.remoteAdapter.getSession();
+    await this.handleRemoteSession(session);
+  } catch (error) {
+    this.backendMode = "supabase-error";
+    this.dataStore = this.createLockedDataStore();
+    this.remoteAdapter = null;
+    this.currentUser = null;
+    this.currentMembership = null;
+    this.handleRemoteError("starta Supabase-anslutningen", error);
+    this.setDataLoading(false);
+    this.refreshViews();
+  }
+},
+
+async handleRemoteSession(session) {
+  if (!this.remoteAdapter) return;
+  const requestId = ++this._authRequestId;
+  this.setDataLoading(true, session ? "Hämtar familjens data …" : "Kontrollerar inloggningen …");
+
+  try {
+    const state = await this.remoteAdapter.useSession(session);
+    if (requestId !== this._authRequestId) return;
+
+    this.currentUser = this.remoteAdapter.user;
+    this.currentMembership = state.membership;
+    this.applyAdminMode();
+    this.refreshViews();
+
+    if (!state.authenticated) {
+      this.showStatus("Logga in för att se familjens privata data.");
+    } else if (!state.membership) {
+      this.showStatus("Kontot är inloggat men har ännu inget familjemedlemskap.", "error");
+    } else {
+      this.showStatus(`Familjedata laddad för ${state.membership.familyName}.`);
+    }
+  } catch (error) {
+    if (requestId !== this._authRequestId) return;
+    this.currentUser = null;
+    this.currentMembership = null;
+    this.applyAdminMode();
+    this.refreshViews();
+    this.handleRemoteError("hämta den inloggade användarens data", error);
+  } finally {
+    if (requestId === this._authRequestId) this.setDataLoading(false);
+  }
+},
+
+getLocalEventsForMigration() {
+  if (!this.localDataStore?.eventStore) return [];
+  return this.localDataStore.eventStore.listEvents();
+},
+
+getLocalEventImportMarkerKey() {
+  const familyId = this.currentMembership?.familyId || "unknown-family";
+  const userId = this.currentUser?.id || "unknown-user";
+  return `arshjul_local_events_imported_v1::${familyId}::${userId}`;
+},
+
+hasImportedLocalEvents() {
+  if (!this.hasRemoteFamilyAccess()) return false;
+  try {
+    return localStorage.getItem(this.getLocalEventImportMarkerKey()) === "done";
+  } catch (error) {
+    this.handleStorageFailure("läsa status för lokal händelseimport", error);
+    return false;
+  }
+},
+
+markLocalEventsImported() {
+  try {
+    localStorage.setItem(this.getLocalEventImportMarkerKey(), "done");
+    return true;
+  } catch (error) {
+    this.handleStorageFailure("spara status för lokal händelseimport", error);
+    return false;
+  }
+},
+
+async importLocalEvents() {
+  if (!this.remoteAdapter || !this.hasRemoteFamilyAccess()) return;
+  const candidates = this.getLocalEventsForMigration();
+  if (candidates.length === 0) {
+    this.showStatus("Det finns inga lokala händelser att importera.");
+    this.updateAuthorizationUI();
+    return;
+  }
+
+  const approved = confirm(
+    `Importera ${candidates.length} lokala händelser som dina händelser i familjen? Den lokala kopian behålls.`
+  );
+  if (!approved) return;
+
+  this.setDataLoading(true, "Importerar lokala händelser …");
+  const imported = await this.remoteAdapter.eventStore.importEvents(candidates);
+  this.setDataLoading(false);
+  if (imported === null) return;
+
+  const markerSaved = this.markLocalEventsImported();
+  this.refreshViews();
+  this.updateAuthorizationUI();
+  if (!markerSaved || !this.canAnnounceMutationSuccess()) return;
+  this.showStatus(
+    imported.length > 0
+      ? `Importerade ${imported.length} lokala händelser. Den lokala kopian finns kvar.`
+      : "De lokala händelserna finns redan i familjens data."
+  );
+},
+
+async sendMagicLink() {
+  if (!this.remoteAdapter || !this.dom.authEmail) return;
+  const email = this.dom.authEmail.value.trim();
+  if (!email) return;
+  this.setDataLoading(true, "Förbereder inloggningslänk …");
+  const sent = await this.remoteAdapter.sendMagicLink(email);
+  this.setDataLoading(false);
+  if (sent) {
+    this.showStatus("Inloggningslänken har skickats. Kontrollera din e-post.");
+    this.dom.authEmail.value = "";
+  }
+},
+
+async signOut() {
+  if (!this.remoteAdapter) return;
+  this.setDataLoading(true, "Loggar ut …");
+  const signedOut = await this.remoteAdapter.signOut();
+  if (signedOut) await this.handleRemoteSession(null);
+  else this.setDataLoading(false);
+},
+
+updateAuthorizationUI() {
+  const {
+    authPanel,
+    authSummary,
+    magicLinkForm,
+    magicLinkBtn,
+    authActions,
+    signOutBtn,
+    importLocalEventsBtn
+  } = this.dom;
+
+  if (!authPanel) return;
+  if (!this.isSupabaseMode()) {
+    authPanel.classList.add("hidden");
+    return;
+  }
+
+  authPanel.classList.remove("hidden");
+  const loading = document.body.classList.contains("data-loading");
+  const authenticated = Boolean(this.currentUser);
+  const hasAccess = this.hasRemoteFamilyAccess();
+
+  magicLinkForm?.classList.toggle("hidden", authenticated);
+  authActions?.classList.toggle("hidden", !authenticated);
+  if (magicLinkBtn) magicLinkBtn.disabled = loading;
+  if (signOutBtn) signOutBtn.disabled = loading;
+
+  if (authSummary) {
+    if (this.backendMode === "supabase-error") {
+      authSummary.textContent = "Supabase-konfigurationen eller anslutningen kunde inte startas.";
+    } else if (loading) {
+      authSummary.textContent = "Laddar …";
+    } else if (!authenticated) {
+      authSummary.textContent = "Logga in med en Magic Link för att öppna familjens privata data.";
+    } else if (!hasAccess) {
+      authSummary.textContent = "Du är inloggad men väntar på att läggas till i familjen.";
+    } else {
+      const role = this.currentMembership.role === "admin" ? "administratör" : "medlem";
+      authSummary.textContent = `${this.currentMembership.displayName} · ${this.currentMembership.familyName} · ${role}`;
+    }
+  }
+
+  if (importLocalEventsBtn) {
+    const localCount = hasAccess ? this.getLocalEventsForMigration().length : 0;
+    const showImport = localCount > 0 && !this.hasImportedLocalEvents();
+    importLocalEventsBtn.classList.toggle("hidden", !showImport);
+    importLocalEventsBtn.disabled = loading || !hasAccess;
+    importLocalEventsBtn.textContent = `Importera ${localCount} lokala händelser`;
+  }
+
+  const locked = document.body.classList.contains("controls-locked");
+  const disableDataControls = loading || locked || !hasAccess;
+  [
+    this.dom.printBtn,
+    this.dom.copyBtn,
+    this.dom.addEventBtn,
+    this.dom.exportEventsBtn,
+    this.dom.importEventsBtn,
+    this.dom.toggleOverviewBtn,
+    this.dom.yearSelect
+  ].forEach((control) => {
+    if (control) control.disabled = disableDataControls;
+  });
+
+  if (this.dom.exportBirthdaysBtn) {
+    this.dom.exportBirthdaysBtn.disabled = disableDataControls || !this.isAdmin();
+  }
+  if (this.dom.importBirthdaysBtn) {
+    this.dom.importBirthdaysBtn.disabled = disableDataControls || !this.isAdmin();
+  }
+},
+
 sanitizeFamilyCode(rawCode) {
   const code = String(rawCode || "").trim();
   return code || this.defaultFamilyCode;
@@ -1007,6 +1413,14 @@ cacheDom() {
   this.dom.familyCodeInput = document.getElementById("familyCodeInput");
   this.dom.setFamilyCodeBtn = document.getElementById("setFamilyCodeBtn");
   this.dom.appStatus = document.getElementById("appStatus");
+  this.dom.authPanel = document.getElementById("authPanel");
+  this.dom.authSummary = document.getElementById("authSummary");
+  this.dom.magicLinkForm = document.getElementById("magicLinkForm");
+  this.dom.authEmail = document.getElementById("authEmail");
+  this.dom.magicLinkBtn = document.getElementById("magicLinkBtn");
+  this.dom.authActions = document.getElementById("authActions");
+  this.dom.signOutBtn = document.getElementById("signOutBtn");
+  this.dom.importLocalEventsBtn = document.getElementById("importLocalEventsBtn");
 
   this.dom.openSound = document.getElementById("openSound");
   this.dom.yearSelect = document.getElementById("yearSelect");
@@ -1066,6 +1480,7 @@ cacheDom() {
   if (this.dom.setFamilyCodeBtn) this.dom.setFamilyCodeBtn.disabled = false;
   if (this.dom.exportBirthdaysBtn) this.dom.exportBirthdaysBtn.disabled = false;
   if (this.dom.importBirthdaysBtn) this.dom.importBirthdaysBtn.disabled = false;
+  this.updateAuthorizationUI();
 },
 
 rememberDialogFocus() {
@@ -1155,6 +1570,7 @@ closeCopyHelperOverlay() {
 },
 
 exitAdminMode() {
+  if (this.isSupabaseMode()) return;
   document.body.classList.remove("admin-mode");
 
   try {
@@ -1165,6 +1581,12 @@ exitAdminMode() {
 },
 
 applyAdminMode() {
+  if (this.isSupabaseMode()) {
+    document.body.classList.toggle("admin-mode", this.currentMembership?.role === "admin");
+    this.updateAuthorizationUI();
+    return;
+  }
+
   let isAdminFromUrl = false;
   try {
     const params = new URLSearchParams(window.location.search);
@@ -1896,38 +2318,46 @@ applyAdminMode() {
     appendDetail("Beskrivning", ev?.desc);
     appendDetail("Skapad av", ev?.createdBy);
 
-    const actions = document.createElement("div");
-    actions.style.display = "flex";
-    actions.style.gap = "0.5rem";
-    actions.style.marginTop = "0.6rem";
-    actions.style.justifyContent = "flex-end";
+    let editBtn = null;
+    let delBtn = null;
+    if (ev && this.canManageEvent(ev)) {
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.gap = "0.5rem";
+      actions.style.marginTop = "0.6rem";
+      actions.style.justifyContent = "flex-end";
 
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.textContent = "Redigera";
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.textContent = "Ta bort";
-    actions.append(editBtn, delBtn);
-    detail.appendChild(actions);
+      editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.textContent = "Redigera";
+      delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.textContent = "Ta bort";
+      actions.append(editBtn, delBtn);
+      detail.appendChild(actions);
+    }
     overlayText.replaceChildren(detail);
 
-    this.showOverlay(editBtn);
+    this.showOverlay(editBtn || this.dom.closeBtn);
     playOpenSound();
 
-    editBtn.addEventListener("click", () => this.openEventCreateOverlay(ev));
-    delBtn.addEventListener("click", () => {
+    editBtn?.addEventListener("click", () => this.openEventCreateOverlay(ev));
+    delBtn?.addEventListener("click", async () => {
       const ok = confirm("Ta bort händelsen?");
       if (!ok) return;
 
-      if (!this.deleteUserEventById(id)) {
+      const deleted = await this.runDataMutation(
+        "Tar bort händelsen …",
+        () => this.deleteUserEventById(id)
+      );
+      if (!deleted) {
         this.showStatus("Händelsen kunde inte tas bort.", "error");
         return;
       }
 
       this.refreshViews();
       this.closeOverlay();
-      this.showStatus("Händelsen togs bort.");
+      if (this.canAnnounceMutationSuccess()) this.showStatus("Händelsen togs bort.");
     });
 
     return;
@@ -1949,6 +2379,17 @@ applyAdminMode() {
  openEventCreateOverlay(existingEvent = null) {
   const { overlay, overlayTitle, overlayText } = this.dom;
   if (!overlay || !overlayTitle || !overlayText) return;
+
+  if (this.isSupabaseMode()) {
+    if (!this.hasRemoteFamilyAccess()) {
+      this.showStatus("Logga in och invänta familjemedlemskap innan du skapar händelser.", "error");
+      return;
+    }
+    if (existingEvent && !this.canManageEvent(existingEvent)) {
+      this.showStatus("Du får bara redigera dina egna händelser.", "error");
+      return;
+    }
+  }
 
   const SIGN_KEY = "arshjul_last_signature_v1";
   const ICON_KEY = "arshjul_last_event_icon_v1";
@@ -2033,8 +2474,22 @@ applyAdminMode() {
     if (createdByEl) createdByEl.value = String(existingEvent.createdBy || "");
     if (iconEl) iconEl.value = String(existingEvent.icon || "🗓️") === "🎉" ? "🎉" : "🗓️";
   } else {
-    if (createdByEl) createdByEl.value = lastSignature;
+    if (createdByEl) {
+      createdByEl.value = this.isSupabaseMode()
+        ? String(this.currentMembership?.displayName || "")
+        : lastSignature;
+    }
     if (iconEl) iconEl.value = lastIcon === "🎉" ? "🎉" : "🗓️";
+  }
+
+  if (createdByEl && this.isSupabaseMode()) {
+    createdByEl.value = String(isEdit ? existingEvent?.createdBy || "" : this.currentMembership?.displayName || "");
+    createdByEl.readOnly = true;
+    createdByEl.setAttribute("aria-describedby", "eventCreatedByHelp");
+    const help = document.createElement("small");
+    help.id = "eventCreatedByHelp";
+    help.textContent = "Skaparen hämtas från familjemedlemskapet och kan inte ändras här.";
+    createdByEl.parentElement?.appendChild(help);
   }
 
   const updateSaveEnabled = () => {
@@ -2059,7 +2514,7 @@ applyAdminMode() {
 
   // Submit: skapa nytt eller uppdatera befintligt
   if (form) {
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const title = (titleEl?.value || "").trim();
@@ -2078,6 +2533,7 @@ applyAdminMode() {
       }
 
       const editId = (form.dataset.editId || "").trim();
+      if (saveBtn) saveBtn.disabled = true;
 
       if (editId) {
         const updatedEvent = {
@@ -2091,8 +2547,13 @@ applyAdminMode() {
           icon
         };
 
-        if (!this.updateUserEvent(updatedEvent)) {
+        const updated = await this.runDataMutation(
+          "Sparar ändringen …",
+          () => this.updateUserEvent(updatedEvent)
+        );
+        if (!updated) {
           this.showStatus("Händelsen kunde inte sparas.", "error");
+          updateSaveEnabled();
           return;
         }
       } else {
@@ -2107,8 +2568,13 @@ applyAdminMode() {
           icon
         };
 
-        if (!this.addUserEvent(newEvent)) {
+        const created = await this.runDataMutation(
+          "Sparar händelsen …",
+          () => this.addUserEvent(newEvent)
+        );
+        if (!created) {
           this.showStatus("Händelsen kunde inte sparas.", "error");
+          updateSaveEnabled();
           return;
         }
       }
@@ -2118,7 +2584,7 @@ applyAdminMode() {
 
       this.refreshViews();
       this.closeOverlay();
-      if (savedSignature && savedIcon) {
+      if (savedSignature && savedIcon && this.canAnnounceMutationSuccess()) {
         this.showStatus(isEdit ? "Händelsen uppdaterades." : "Händelsen skapades.");
       }
     });
@@ -2195,7 +2661,7 @@ openImportEventsOverlay() {
   const input = document.getElementById("importJson");
 
   if (form) {
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const raw = (input?.value || "").trim();
@@ -2214,7 +2680,10 @@ openImportEventsOverlay() {
         return;
       }
 
-      const imported = this.dataStore.eventStore.importEvents(parsed);
+      const imported = await this.runDataMutation(
+        "Importerar händelser …",
+        () => this.dataStore.eventStore.importEvents(parsed)
+      );
 
       if (imported === null) return;
 
@@ -2225,7 +2694,9 @@ openImportEventsOverlay() {
 
       this.refreshViews();
       this.closeOverlay();
-      this.showStatus(`Importerade ${imported.length} händelser.`);
+      if (this.canAnnounceMutationSuccess()) {
+        this.showStatus(`Importerade ${imported.length} händelser.`);
+      }
     });
   }
   this.showOverlay(input);
@@ -2237,7 +2708,7 @@ openExportBirthdaysPrompt() {
   window.prompt("Kopiera JSON för födelsedagar:", json);
 },
 
-openImportBirthdaysPrompt() {
+async openImportBirthdaysPrompt() {
   const raw = window.prompt('Klistra in birthdays JSON\nFormat: [{"name":"...","year":1990,"month":1,"day":1}]');
   if (raw == null) return;
   const trimmed = raw.trim();
@@ -2256,13 +2727,22 @@ openImportBirthdaysPrompt() {
     return;
   }
 
-  const imported = this.dataStore.birthdayStore.importBirthdays(parsed);
+  const imported = await this.runDataMutation(
+    "Importerar födelsedagar …",
+    () => this.dataStore.birthdayStore.importBirthdays(parsed)
+  );
   if (imported === null) {
     alert("Importen avbröts. Listan måste innehålla minst en giltig födelsedag och inga felaktiga datum.");
     return;
   }
+  if (imported.length === 0) {
+    this.showStatus("Inga nya födelsedagar behövde importeras.");
+    return;
+  }
   this.refreshViews();
-  this.showStatus(`Importerade ${imported.length} födelsedagar.`);
+  if (this.canAnnounceMutationSuccess()) {
+    this.showStatus(`Importerade ${imported.length} födelsedagar.`);
+  }
 },
 
 getUserEvents() {
@@ -2320,8 +2800,30 @@ deleteUserEventById(id) {
     importBirthdaysBtn,
     exitAdminBtn,
     familyCodeInput,
-    setFamilyCodeBtn
+    setFamilyCodeBtn,
+    magicLinkForm,
+    signOutBtn,
+    importLocalEventsBtn
   } = this.dom;
+
+  if (magicLinkForm) {
+    magicLinkForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await this.sendMagicLink();
+    });
+  }
+
+  if (signOutBtn) {
+    signOutBtn.addEventListener("click", async () => {
+      await this.signOut();
+    });
+  }
+
+  if (importLocalEventsBtn) {
+    importLocalEventsBtn.addEventListener("click", async () => {
+      await this.importLocalEvents();
+    });
+  }
 
   if (toggleOverviewBtn) {
     toggleOverviewBtn.addEventListener("click", () => {
@@ -2442,11 +2944,10 @@ deleteUserEventById(id) {
   }
 },
 
-  init() {
+  async init() {
     this.selectedYear = this.currentYear;
     this.loadFamilyCode();
     this.cacheDom();
-    this.applyAdminMode();
 
     if (this.dom.familyCodeInput) {
       this.dom.familyCodeInput.value = this.getCurrentFamilyCode();
@@ -2454,13 +2955,15 @@ deleteUserEventById(id) {
 
     this.bindEvents();
     this.initYearSelect();
+    await this.initializeBackend();
     this.refreshViews();
     this.setOverviewButtonLabel();
+    this.updateAuthorizationUI();
   }
 };
 
-window.addEventListener("load", () => {
-  App.init();
+window.addEventListener("load", async () => {
+  await App.init();
 });
 </script>
 

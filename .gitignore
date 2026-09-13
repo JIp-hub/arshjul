@@ -1,3 +1,10 @@
 /backups/
 /arshjul-events-backup.json
 .DS_Store
+
+# Supabase browser configuration and local bootstrap values
+supabase-config.local.js
+.env
+.env.*
+!.env.example
+supabase/bootstrap/first_admin.local.sql
