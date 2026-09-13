@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(18);
 
 select has_table('public', 'families', 'families exists');
 select has_table('public', 'family_members', 'family_members exists');
@@ -92,6 +92,14 @@ select throws_ok(
   $$insert into public.birthdays (family_id, name, birth_year, birth_month, birth_day)
     values ('10000000-0000-0000-0000-000000000001', 'Ogiltigt datum', 2026, 2, 29)$$,
   '23514', null, 'database rejects invalid calendar dates'
+);
+
+insert into public.families (id, name)
+values ('10000000-0000-0000-0000-000000000002', 'Andra testfamiljen');
+select lives_ok(
+  $$insert into public.family_members (family_id, user_id, display_name, role)
+    values ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', 'Medlem', 'member')$$,
+  'one user can have more than one family membership'
 );
 
 select * from finish();

@@ -33,9 +33,10 @@ Den lokala förberedelsen B1 finns nu på feature-branchen. Se `SUPABASE_SETUP.m
 - `role text not null check (role in ('member', 'admin'))`
 - `created_at timestamptz not null default now()`
 - `primary key (family_id, user_id)`
-- `unique (user_id)` i första V1, som medvetet begränsar varje användare till en familj
+- index på `(user_id, created_at, family_id)` för snabb och stabil hämtning av användarens medlemskap
 
 Medlemsraden, tillsammans med den inloggade användarens `auth.uid()`, är säkerhetsgränsen.
+Databasen tillåter flera medlemskap så att en användare inte låses till en enda familj för alltid. V1-gränssnittet visar en aktiv familj åt gången och väljer det äldsta medlemskapet deterministiskt. Ett familjeval kan läggas till senare utan schemaändring.
 
 ### `events`
 

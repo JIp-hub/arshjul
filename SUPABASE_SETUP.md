@@ -39,7 +39,7 @@ Ingen bootstrapfunktion exponeras över Data API. Skriptet stoppar om familjen r
 
 ## Behörighetsmodell
 
-V1 antar en familj per användare. `family_members.user_id` är därför unik. Om flera familjer per användare ska stödjas senare måste denna begränsning tas bort och en familjeväljare införas i UI:t.
+V1 visar en aktiv familj per användare åt gången. Databasen tillåter samtidigt flera rader per `user_id`, så ett konto kan tillhöra fler familjer utan framtida schemaändring. Tills en familjeväljare byggs väljer adaptern det äldsta medlemskapet deterministiskt.
 
 - Alla fyra tabeller har RLS.
 - `anon` saknar samtliga tabellgrants.
@@ -57,7 +57,7 @@ Behörighetskontrollerna i UI:t speglar reglerna för begriplighet. Databasen oc
 Utan konfiguration kör appen oförändrat med lokal DataStore. Med giltig konfiguration:
 
 1. klienten läser befintlig Auth-session,
-2. hämtar användarens `family_members`-rad,
+2. hämtar användarens medlemskap och väljer det äldsta som aktiv familj,
 3. hämtar medlemsnamn, händelser och födelsedagar,
 4. lagrar resultatet i adapterns minnescache,
 5. låter befintlig lista, översikt, overlay, kopiering och utskrift läsa samma normaliserade objekt som tidigare.

@@ -196,9 +196,10 @@
 
       const membershipResult = await this.client
         .from("family_members")
-        .select("family_id,user_id,display_name,role,families(name,invite_code)")
+        .select("family_id,user_id,display_name,role,created_at,families(name,invite_code)")
         .eq("user_id", this.user.id)
-        .maybeSingle();
+        .order("created_at", { ascending: true })
+        .order("family_id", { ascending: true });
 
       if (membershipResult.error) {
         this.clearData();
@@ -206,18 +207,22 @@
         return false;
       }
 
-      if (!membershipResult.data) {
+      const membershipRow = Array.isArray(membershipResult.data)
+        ? membershipResult.data[0]
+        : membershipResult.data;
+
+      if (!membershipRow) {
         this.clearData();
         return true;
       }
 
       const membership = {
-        familyId: membershipResult.data.family_id,
-        userId: membershipResult.data.user_id,
-        displayName: membershipResult.data.display_name,
-        role: membershipResult.data.role,
-        familyName: membershipResult.data.families?.name || "Familjen",
-        inviteCode: membershipResult.data.families?.invite_code || null
+        familyId: membershipRow.family_id,
+        userId: membershipRow.user_id,
+        displayName: membershipRow.display_name,
+        role: membershipRow.role,
+        familyName: membershipRow.families?.name || "Familjen",
+        inviteCode: membershipRow.families?.invite_code || null
       };
 
       const [membersResult, eventsResult, birthdaysResult] = await Promise.all([
