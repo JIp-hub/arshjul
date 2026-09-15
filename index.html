@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Årshjul</title>
+  <link rel="icon" href="data:,">
 <style>
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -440,7 +441,7 @@ body.supabase-mode #exitAdminBtn {
   }
 
   .wheel-month-label,
-  .wheel-count-label {
+  .wheel-indicator-label {
     fill: #17223b;
     text-anchor: middle;
     dominant-baseline: middle;
@@ -453,14 +454,8 @@ body.supabase-mode #exitAdminBtn {
     font-weight: 750;
   }
 
-  .wheel-count-badge {
-    fill: rgba(255, 255, 255, 0.82);
-    stroke: rgba(23, 34, 59, 0.16);
-    pointer-events: none;
-  }
-
-  .wheel-count-label {
-    font-size: 12px;
+  .wheel-indicator-label {
+    font-size: 11px;
     font-weight: 700;
   }
 
@@ -508,11 +503,33 @@ body.supabase-mode #exitAdminBtn {
 
   .wheel-month-panel {
     align-self: stretch;
+    scroll-margin-top: 1rem;
     padding: clamp(1rem, 2.5vw, 1.5rem);
     border: 1px solid #dbe4ee;
     border-radius: 16px;
     background: linear-gradient(180deg, #fff, #f8fafc);
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .wheel-month-panel.is-updated {
+    animation: wheel-panel-update 520ms ease-out;
+  }
+
+  @keyframes wheel-panel-update {
+    0% {
+      border-color: #17365d;
+      box-shadow: 0 0 0 4px rgba(23, 54, 93, 0.16), 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    100% {
+      border-color: #dbe4ee;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wheel-month-panel.is-updated {
+      animation: none;
+    }
   }
 
   .wheel-panel-kicker {
@@ -602,6 +619,10 @@ body.supabase-mode #exitAdminBtn {
 
     .wheel-month-label {
       font-size: 14px;
+    }
+
+    .wheel-indicator-label {
+      font-size: 10px;
     }
   }
 
@@ -2174,12 +2195,20 @@ applyAdminMode() {
     ].join(" ");
   },
 
-  describeWheelMonth(monthKey, events) {
+  getWheelCounts(events) {
     const birthdays = events.filter((event) => event.type === "birthday").length;
-    const familyEvents = events.length - birthdays;
+    return { birthdays, familyEvents: events.length - birthdays };
+  },
+
+  formatWheelCountSummary(events) {
+    const { birthdays, familyEvents } = this.getWheelCounts(events);
     const birthdayText = `${birthdays} ${birthdays === 1 ? "födelsedag" : "födelsedagar"}`;
     const eventText = `${familyEvents} ${familyEvents === 1 ? "händelse" : "händelser"}`;
-    return `${this.capitalizeMonth(monthKey)}: ${birthdayText} och ${eventText}`;
+    return `${birthdayText} · ${eventText}`;
+  },
+
+  describeWheelMonth(monthKey, events) {
+    return `${this.capitalizeMonth(monthKey)}: ${this.formatWheelCountSummary(events).replace(" · ", ", ")}`;
   },
 
   setPrimaryView(view) {
@@ -2193,7 +2222,7 @@ applyAdminMode() {
     this.setOverviewButtonLabel();
   },
 
-  selectWheelMonth(index, { focus = false } = {}) {
+  selectWheelMonth(index, { focus = false, revealPanel = false } = {}) {
     const normalized = ((Number(index) % 12) + 12) % 12;
     this.selectedWheelMonth = normalized;
     this.renderWheel();
@@ -2205,6 +2234,31 @@ applyAdminMode() {
           ?.focus();
       });
     }
+
+    this.showWheelSelectionFeedback({ revealPanel });
+  },
+
+  showWheelSelectionFeedback({ revealPanel = false } = {}) {
+    const panel = this.dom.wheelMonthTitle?.closest(".wheel-month-panel");
+    if (!panel) return;
+
+    panel.classList.remove("is-updated");
+    void panel.getBoundingClientRect();
+    panel.classList.add("is-updated");
+
+    if (!revealPanel || !window.matchMedia("(max-width: 800px)").matches) return;
+
+    requestAnimationFrame(() => {
+      const bounds = panel.getBoundingClientRect();
+      const headingIsVisible = bounds.top >= 0 && bounds.top <= window.innerHeight - 120;
+      if (headingIsVisible) return;
+
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      panel.scrollIntoView({
+        behavior: reducedMotion ? "auto" : "smooth",
+        block: "start"
+      });
+    });
   },
 
   handleWheelKeydown(event, index) {
@@ -2217,33 +2271,32 @@ applyAdminMode() {
 
     if (Object.prototype.hasOwnProperty.call(keySteps, event.key)) {
       event.preventDefault();
-      this.selectWheelMonth(index + keySteps[event.key], { focus: true });
+      this.selectWheelMonth(index + keySteps[event.key], { focus: true, revealPanel: true });
       return;
     }
 
     if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      this.selectWheelMonth(event.key === "Home" ? 0 : 11, { focus: true });
+      this.selectWheelMonth(event.key === "Home" ? 0 : 11, { focus: true, revealPanel: true });
       return;
     }
 
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      this.selectWheelMonth(index);
+      this.selectWheelMonth(index, { revealPanel: true });
     }
   },
 
   renderWheelMonthPanel(eventsByMonth) {
     const monthKey = this.monthOrder[this.selectedWheelMonth];
     const events = eventsByMonth.get(monthKey) || [];
-    const birthdays = events.filter((event) => event.type === "birthday").length;
-    const familyEvents = events.length - birthdays;
+    const { birthdays, familyEvents } = this.getWheelCounts(events);
 
     if (this.dom.wheelMonthTitle) {
       this.dom.wheelMonthTitle.textContent = `${this.capitalizeMonth(monthKey)} ${this.selectedYear}`;
     }
     if (this.dom.wheelMonthSummary) {
-      this.dom.wheelMonthSummary.textContent = this.describeWheelMonth(monthKey, events).split(": ")[1];
+      this.dom.wheelMonthSummary.textContent = this.formatWheelCountSummary(events);
     }
     if (this.dom.wheelMonthList) {
       this.dom.wheelMonthList.replaceChildren();
@@ -2308,23 +2361,20 @@ applyAdminMode() {
       group.appendChild(label);
 
       if (events.length > 0) {
-        const countPoint = this.polarPoint(166, angle);
-        const badge = document.createElementNS(namespace, "circle");
-        badge.classList.add("wheel-count-badge");
-        badge.setAttribute("cx", countPoint.x.toFixed(2));
-        badge.setAttribute("cy", (countPoint.y + 16).toFixed(2));
-        badge.setAttribute("r", "10");
-        group.appendChild(badge);
+        const { birthdays, familyEvents } = this.getWheelCounts(events);
+        const indicators = [];
+        if (birthdays > 0) indicators.push(`🎂 ${birthdays}`);
+        if (familyEvents > 0) indicators.push(`📅 ${familyEvents}`);
 
-        const count = document.createElementNS(namespace, "text");
-        count.classList.add("wheel-count-label");
-        count.setAttribute("x", countPoint.x.toFixed(2));
-        count.setAttribute("y", (countPoint.y + 16).toFixed(2));
-        count.textContent = String(events.length);
-        group.appendChild(count);
+        const indicator = document.createElementNS(namespace, "text");
+        indicator.classList.add("wheel-indicator-label");
+        indicator.setAttribute("x", labelPoint.x.toFixed(2));
+        indicator.setAttribute("y", (labelPoint.y + 16).toFixed(2));
+        indicator.textContent = indicators.join("  ");
+        group.appendChild(indicator);
       }
 
-      group.addEventListener("click", () => this.selectWheelMonth(index));
+      group.addEventListener("click", () => this.selectWheelMonth(index, { revealPanel: true }));
       group.addEventListener("keydown", (event) => this.handleWheelKeydown(event, index));
       root.appendChild(group);
     });
