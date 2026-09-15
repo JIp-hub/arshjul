@@ -2179,7 +2179,7 @@ applyAdminMode() {
   },
 
   wheelSectorPath(index) {
-    const startAngle = -105 + index * 30;
+    const startAngle = -90 + index * 30;
     const endAngle = startAngle + 30;
     const outerStart = this.polarPoint(238, startAngle);
     const outerEnd = this.polarPoint(238, endAngle);
@@ -2351,7 +2351,7 @@ applyAdminMode() {
         group.appendChild(currentRing);
       }
 
-      const angle = -90 + index * 30;
+      const angle = -75 + index * 30;
       const labelPoint = this.polarPoint(166, angle);
       const label = document.createElementNS(namespace, "text");
       label.classList.add("wheel-month-label");
