@@ -1557,6 +1557,8 @@ async handleRemoteSession(session) {
 
     if (!state.authenticated) {
       this.showStatus("Logga in för att se familjens privata data.");
+    } else if (state.loadFailed) {
+      this.showStatus("Kunde inte hämta familjedata. Försök igen eller logga in på nytt.", "error");
     } else if (!state.membership) {
       this.showStatus("Kontot är inloggat men har ännu inget familjemedlemskap.", "error");
     } else {

@@ -1,5 +1,7 @@
 # Fas B – gemensamma privata familjedata
 
+> **Historiskt genomförandeunderlag.** Fas B1 och B2 är genomförda. Den aktuella V1-lösningen och releaseprocessen beskrivs i `README.md` och `SUPABASE_SETUP.md`; texten nedan bevaras för beslutshistorik och ska inte läsas som återstående krav.
+
 Detta är genomförandeplanen för nästa fas. Den beskriver Supabase-lösningen men skapar eller ändrar inga externa resurser.
 
 Den lokala förberedelsen B1 finns nu på feature-branchen. Se `SUPABASE_SETUP.md` för aktivering, bootstrap, migrering och återstående B2-steg. Inga externa resurser aktiveras av B1-konfigurationen.

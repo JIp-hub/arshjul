@@ -1,49 +1,49 @@
-# Regressions-checklista – Årshjulet (snabbtest)
+# V1 regressionschecklista – Årshjulet
 
-Kör denna lista innan du börjar på en ny feature och efter varje större ändring.
+Använd endast syntetisk data. Kontrollera att all tillfällig testdata är borta när testet är klart.
 
-## 0) Start
-- [ ] Öppna `index-dev.html` i webbläsare (samma sätt som du normalt testar).
-- [ ] Öppna DevTools Console.
-- [ ] Console: 0 fel (inga röda errors).
+## Auth och åtkomst
 
-## 1) Basrender
-- [ ] Sidan laddar utan att layouten “hoppar”.
-- [ ] Månadsektioner syns korrekt.
-- [ ] Klick på dag/birthday öppnar overlay/modal där det ska.
-
-## 2) Print (knapp + Arkiv → Skriv ut)
-- [ ] Klick på Print-knapp ger korrekt printläge.
-- [ ] Arkiv → Skriv ut (browsermeny) ger samma stabila printvy.
-- [ ] Endast födelsedagar syns i print.
-- [ ] Printlistan är stabil: 🎂-kolumnen svajar inte (dag 3 vs 30).
-
-## 3) Kopiera födelsedagslista (modal + Cmd/Ctrl+C)
-- [ ] Öppna “kopiera födelsedagslista”-modalen.
-- [ ] Cmd+C/Ctrl+C kopierar utan fel.
-- [ ] Klistra in i en text (t.ex. Notes) och kontrollera att formatet är rimligt.
-
-## 4) Låsning av kontroller
-- [ ] När låsning är aktiv: kontroller är gråade (body har `controls-locked`).
-- [ ] Kontroller går inte att använda när de är låsta.
-- [ ] När upplåst: kontroller fungerar normalt igen.
-
-## 5) yearSelect och scrollhjul
-- [ ] Scrollhjul över yearSelect ändrar inte värde.
-- [ ] yearSelect kan fortfarande ändras avsiktligt (klick + välj).
-
-## 6) Snabb sanity efter regressionfix
-- [ ] Upprepa punkt 2 + 3 (print + kopiera) efter kodändring.
-- [ ] Console fortfarande 0 fel.
-
-## 7) Supabase-läge (B1/B2)
-- [ ] Utloggad användare ser inloggningsformuläret men inga privata familjedata.
-- [ ] Inloggad användare utan medlemskap ser ett tydligt vänteläge och inga privata data.
-- [ ] Medlem ser familjens händelser och födelsedagar.
-- [ ] Medlem kan skapa, redigera och radera egna händelser men saknar knappar för andras händelser.
-- [ ] Admin kan redigera och radera samtliga familjehändelser.
-- [ ] Endast admin ser födelsedagsimporten.
-- [ ] Lokala händelser importeras additivt, ägs av den inloggade användaren och finns kvar lokalt.
-- [ ] Familjekodens lokala kontroller är dolda och en känd kod ger ingen databasåtkomst.
+- [ ] Utloggad användare ser Magic Link-formuläret och ingen familjedata.
+- [ ] Magic Link återvänder till rätt adress och ger en session.
+- [ ] Medlem ser sin familjs data och kan skapa, redigera och radera egna händelser.
+- [ ] Medlem kan inte ändra andras händelser eller administrera födelsedagar.
+- [ ] Admin kan hantera alla familjens händelser och födelsedagar.
+- [ ] Autentiserad användare utan medlemskap ser ingen familjedata.
 - [ ] Utloggning tömmer vyerna och minnescachen.
-- [ ] Laddnings- och fellägen återaktiverar rätt kontroller när operationen är klar.
+
+## Vyer och datum
+
+- [ ] Hjul, lista och översikt visar samma data.
+- [ ] Alla tolv sektorer kan väljas med mus, touch och tangentbord.
+- [ ] Januari ligger mellan 12 och 1; december ligger mellan 11 och 12.
+- [ ] Aktuell och vald månad har skilda, tydliga markeringar.
+- [ ] Indikatorerna skiljer födelsedagar från händelser utan ensamma oförklarade siffror.
+- [ ] Månadspanelen uppdateras direkt för tom månad, bara födelsedag, bara händelse och båda.
+- [ ] Årsbyte filtrerar daterade händelser; födelsedagar återkommer och ålder uppdateras.
+
+## Dataflöden
+
+- [ ] Skapa, redigera och radera uppdaterar alla aktiva vyer.
+- [ ] Ogiltiga kalenderdatum och felaktig JSON avvisas utan dataförlust.
+- [ ] Händelse- och födelsedagsimport är additiv och dubblettsäkert.
+- [ ] Export innehåller förväntad data och ingen data från annan familj.
+- [ ] Kopiering innehåller endast födelsedagar.
+- [ ] Utskrift innehåller endast födelsedagar och fungerar både från knappen och webbläsarmenyn.
+
+## Tillgänglighet och layout
+
+- [ ] Desktop 1280 × 900 och mobil 375 × 667 är läsbara utan blockerande överlappning.
+- [ ] Dialoger har dialogsemantik, maxhöjd och intern rullning på mobil.
+- [ ] Tab och Shift+Tab hålls i öppen dialog; Escape stänger en dialog i taget.
+- [ ] Fokus återgår till kontrollen som öppnade dialogen.
+- [ ] Månadspanelen förs in i synligt område på mobil utan att tangentbordsfokus flyttas.
+
+## Fel och release
+
+- [ ] Nätverks-, Supabase-, lagrings- och kopieringsfel visas begripligt och låser inte appen permanent.
+- [ ] Konsolen har inga oväntade JavaScript-fel.
+- [ ] `index.html` är publiceringsfilen och ingen experimentvy är aktiverad.
+- [ ] Pages-paketet innehåller endast avsedda webbfiler.
+- [ ] Ingen privat data, backup, export, service role- eller secret-nyckel finns i aktuell Git-tree eller publiceringspaketet.
+- [ ] RLS är aktivt på alla fyra tabeller och policytestet går igenom.

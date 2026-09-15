@@ -1,5 +1,11 @@
 /backups/
+/exports/
+/private-data/
 /arshjul-events-backup.json
+/arshjul-*-backup*.json
+/arshjul-*-export*.json
+/*birthdays*.json
+/*events*.json
 .DS_Store
 
 # Supabase browser configuration and local bootstrap values

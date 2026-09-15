@@ -185,7 +185,11 @@
 
       const loaded = await this.loadFamilyData();
       if (!loaded) this.clearData();
-      return { authenticated: true, membership: loaded ? this.membership : null };
+      return {
+        authenticated: true,
+        membership: loaded ? this.membership : null,
+        loadFailed: !loaded
+      };
     }
 
     async loadFamilyData() {

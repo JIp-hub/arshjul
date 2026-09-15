@@ -1,6 +1,8 @@
 PROJECT PLAN – Årshjul
 # PROJECT PLAN – Årshjul
 
+> **Historiskt dokument.** Detta var den tidiga planen före Supabase- och hjulimplementationen. Den beskriver inte längre projektets nuläge. Se `README.md`, `SUPABASE_SETUP.md` och `REGRESSION_CHECKLIST.md` för aktuell V1.
+
 ## Arbetssätt som alltid gäller (mellan chattar)
 
 ### 1) Kodändringar – exakt arbetsflöde (obligatoriskt)

@@ -1,87 +1,104 @@
-# Supabase B1 – lokal förberedelse
+# Supabase och publicering för V1
 
-B1 innehåller all lokal kod och SQL som behövs inför en verklig anslutning. Inga migrationsfiler har körts mot Supabase, inga användare har skapats och inga Magic Links har skickats.
+V1 använder Supabase för autentisering och gemensamma privata familjedata. Projektet finns, de tre versionshanterade migrationerna är körda och RLS är aktivt. Den här filen beskriver den nuvarande lösningen och den kontrollerade releaseprocessen.
 
-## Filer och ansvar
+## Klientkonfiguration
 
-- `supabase/migrations/20260913062311_create_family_data_model.sql`: tabeller, index, explicita Data API-grants, RLS-policyer och privata behörighetshjälpare.
-- `supabase/tests/family_rls_test.sql`: pgTAP-fall för medlem, admin och utomstående.
-- `supabase/bootstrap/`: säker engångsbootstrap av första familjen och första admin.
-- `js/supabase-adapter.js`: asynkron Supabase-implementation bakom befintlig DataStore-gräns. `@supabase/supabase-js` är låst till 2.116.0.
-- `supabase-config.js`: incheckad, tom standardkonfiguration. Därför fortsätter appen använda Fas A:s lokala DataStore tills B2 aktiveras.
-- `scripts/build-supabase-config.mjs`: skapar webbläsarkonfiguration från deployment-variabler och avvisar service role/secret keys.
+Webbläsaren behöver exakt tre publika värden:
 
-## Nödvändiga variabler
-
-| Variabel | Innehåll | Hemlig? |
+| GitHub repository variable | Innehåll | Hemlig? |
 |---|---|---|
-| `ARSHJUL_SUPABASE_URL` | Projektets publika HTTPS-URL | Nej |
-| `ARSHJUL_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key; legacy anon key kan användas vid behov | Nej, men den får bara ge åtkomst genom RLS |
-| `ARSHJUL_AUTH_REDIRECT_URL` | Exakt publicerad GitHub Pages-adress | Nej |
+| `ARSHJUL_SUPABASE_URL` | Projektets HTTPS-URL | Nej |
+| `ARSHJUL_SUPABASE_PUBLISHABLE_KEY` | Aktiv modern `sb_publishable_...`-nyckel | Nej |
+| `ARSHJUL_AUTH_REDIRECT_URL` | `https://jip-hub.github.io/arshjul/` | Nej |
 
-`.env` och lokala bootstrapvärden ignoreras av Git. `service_role`, `sb_secret_...`, privata JWT:er och databaslösenord får aldrig finnas i webbappen, deployment-variablerna eller repot.
+GitHub Actions bygger `supabase-config.js` i publiceringspaketet. Den incheckade filen förblir tom, så projektvärden blandas inte in i källhistoriken. `scripts/build-supabase-config.mjs` stoppar bygget om ett värde saknas eller om en service role/secret-nyckel upptäcks.
 
-GitHub Pages saknar servermiljövariabler vid körning. I B2 bör en Pages-build skapa `supabase-config.js` med `scripts/build-supabase-config.mjs` från GitHub repository variables. Ett alternativ är att checka in projekt-URL och publishable key eftersom båda är offentliga klientvärden, men buildvarianten minskar risken att någon av misstag klistrar in en hemlig nyckel.
+Publishable key och projekt-URL är avsedda för webbläsaren. De ger ingen egen behörighet; all dataåtkomst måste fortfarande passera Auth och RLS. Service role, `sb_secret_...`, databaslösenord och privata JWT:er får aldrig läggas i GitHub-variablerna eller webbappen.
 
-## Auth och första admin
+## Auth
 
-Appen använder `signInWithOtp` med `shouldCreateUser: false`. Endast redan skapade Auth-konton kan därför begära en Magic Link från appen.
+Appen använder Magic Link genom `signInWithOtp` med `shouldCreateUser: false`. En adress kan därför inte registrera sig själv. Kontot skapas först manuellt i Supabase Auth och läggs sedan till i `family_members` med betrodd administratörsåtkomst.
 
-Första admin skapas så här i B2:
+Före publicering ska Supabase Auth ha:
 
-1. Skapa kontot manuellt i Supabase Authentication.
-2. Kopiera `supabase/bootstrap/first_admin.example.sql` till den ignorerade filen `first_admin.local.sql`.
-3. Fyll i kontots e-postadress och önskat visningsnamn.
-4. Kör transaktionen en gång i SQL Editor.
-5. Verifiera en familj och ett medlemskap med rollen `admin`.
+- Site URL `https://jip-hub.github.io/arshjul/`,
+- samma exakta adress i Redirect URLs,
+- e-postinloggning aktiverad och automatisk signup avstängd,
+- en kontrollerad Magic Link-mall och fungerande e-postleverans.
 
-Ingen bootstrapfunktion exponeras över Data API. Skriptet stoppar om familjen redan finns, om platshållare finns kvar eller om Auth-användaren saknas.
+Lokal testadress läggs till separat som tillåten redirect och tas bort när den inte längre behövs.
 
-## Behörighetsmodell
+## Databas och RLS
 
-V1 visar en aktiv familj per användare åt gången. Databasen tillåter samtidigt flera rader per `user_id`, så ett konto kan tillhöra fler familjer utan framtida schemaändring. Tills en familjeväljare byggs väljer adaptern det äldsta medlemskapet deterministiskt.
+Migrationerna i `supabase/migrations/` skapar:
 
-- Alla fyra tabeller har RLS.
-- `anon` saknar samtliga tabellgrants.
-- Inloggad medlem får läsa sin familj, medlemsnamnen, familjens händelser och födelsedagar.
-- Händelser skapas alltid med den inloggades `auth.uid()` som ägare.
-- Ägaren får ändra/radera sin händelse; admin får ändra/radera alla familjens händelser.
-- Endast admin får skriva födelsedagar.
-- `invite_code` förekommer inte i någon policy. Koden identifierar en familj men ger ingen åtkomst.
-- Medlemskap och roller ändras endast med betrodd databasbehörighet i V1.
+- `families`,
+- `family_members`,
+- `events`,
+- `birthdays`,
+- privata hjälpfunktioner för medlems- och adminkontroll,
+- index, datumkontroller, begränsade grants och RLS-policyer.
 
-Behörighetskontrollerna i UI:t speglar reglerna för begriplighet. Databasen och RLS är den slutliga säkerhetsgränsen.
+Behörigheterna är:
 
-## DataStore och laddning
+- anonym användare har inga tabellrättigheter,
+- medlem läser sin familj, medlemsnamn, händelser och födelsedagar,
+- medlem skapar händelser med sin egen `auth.uid()` och ändrar/raderar bara egna händelser,
+- admin ändrar/raderar alla familjens händelser och administrerar födelsedagar,
+- autentiserad användare utan medlemskap ser ingen familjedata,
+- `invite_code` ingår inte i någon behörighetspolicy.
 
-Utan konfiguration kör appen oförändrat med lokal DataStore. Med giltig konfiguration:
+V1 visar det äldsta medlemskapet som aktiv familj. Databasen tillåter flera medlemskap, men familjeväljare ligger efter V1.
 
-1. klienten läser befintlig Auth-session,
-2. hämtar användarens medlemskap och väljer det äldsta som aktiv familj,
-3. hämtar medlemsnamn, händelser och födelsedagar,
-4. lagrar resultatet i adapterns minnescache,
-5. låter befintlig lista, översikt, overlay, kopiering och utskrift läsa samma normaliserade objekt som tidigare.
+## Första admin och fler medlemmar
 
-Skrivoperationerna är asynkrona och följs av ny hämtning. Realtime används inte.
+Första admin skapades med den manuella bootstrap som finns beskriven i `supabase/bootstrap/README.md`. För en ny miljö:
 
-## Engångsmigrering av data
+1. skapa Auth-kontot manuellt,
+2. kopiera `first_admin.example.sql` till den ignorerade `first_admin.local.sql`,
+3. fyll den lokala filen med e-post och visningsnamn,
+4. kör transaktionen i SQL Editor,
+5. verifiera exakt en familj och ett adminmedlemskap,
+6. radera den lokala arbetsfilen när verifieringen är klar.
 
-### Födelsedagar
+Övriga V1-konton skapas manuellt i Auth och läggs till manuellt i `family_members`. Ett automatiskt inbjudningssystem byggs senare.
 
-Admin använder den befintliga JSON-importen. I Supabase-läge är importen additiv, validerar varje verkligt kalenderdatum, hoppar över poster som redan finns och raderar aldrig serverdata. Den privata JSON-filen ska ligga utanför Git.
+## Migrering av privat data
 
-### Lokala händelser
+Verklig data importeras först efter att den publicerade tomma V1-versionen klarat Auth- och RLS-test.
 
-Lokala händelser behöver migreras eftersom `localStorage` inte delas mellan enheter. Efter inloggning visas en särskild knapp när den aktuella lokala familjebucketen innehåller händelser. Alla importerade poster ägs av den inloggade användaren, dubbletter hoppas över och den lokala kopian bevaras som rollback. Varje användare ska bara importera händelser som personen själv ska äga.
+- Admin importerar födelsedagar med den befintliga JSON-importen. Importen är additiv, validerar verkliga kalenderdatum, hoppar över dubbletter och tömmer aldrig registret vid fel.
+- Varje medlem importerar bara lokala händelser som personen själv ska äga. Adaptern sätter `family_id` och `created_by` från den inloggade sessionen. Den lokala kopian behålls som rollback tills resultatet verifierats.
 
-## B2
+Privata JSON-filer förvaras utanför repot. `backups/`, `exports/`, `private-data/` och vanliga export-/backupnamn i repo-roten ignoreras av Git.
 
-1. Skapa projektet och kontrollera region samt personuppgiftsvillkor.
-2. Konfigurera Site URL, redirect-URL och e-postleverans, behåll automatisk signup avstängd och kontrollera Magic Link-mallen.
-3. Kör migrationen i en ny tom miljö och kör databassäkerhetskontroller/advisors.
-4. Kör `supabase test db` lokalt eller mot en separat testmiljö.
-5. Skapa första Auth-användaren och kör bootstraptransaktionen.
-6. Sätt de tre publika deployment-variablerna och bygg `supabase-config.js`.
-7. Testa medlem, admin och utomstående i riktiga sessioner på minst två enheter.
-8. Importera privata födelsedagar och därefter respektive användares lokala händelser.
-9. Publicera först efter antal- och behörighetskontroll.
+## GitHub Pages
+
+`.github/workflows/pages.yml` skapar ett minimalt publiceringspaket med endast:
+
+- `index.html`,
+- `js/supabase-adapter.js`,
+- genererad `supabase-config.js`,
+- `.nojekyll`.
+
+Historiska dokument, SQL, tester, utvecklingskopior och lokala filer publiceras inte. Workflowen avbryter före deploy om någon konfigurationsvariabel saknas eller innehåller en otillåten nyckel.
+
+### Obligatorisk historiksanering före V1
+
+Releasegranskningen hittade verkliga familjeuppgifter i äldre HTML-filer och Git-revisioner. Den gamla filen är borttagen ur V1-trädet, men en vanlig merge eller push tar inte bort innehåll ur Git-historik, gamla branches, pull requests eller GitHub-cache.
+
+Före V1-publicering ska därför den befintliga Pages-sidan först avpubliceras och den publika Git-historiken saneras enligt GitHubs process för känsliga data. Bevara vid behov en privat offline-arkivkopia, sanera samtliga berörda filvägar och refs i en separat spegelklon, kontrollera resultatet, uppdatera GitHub med den sanerade historiken och kontakta GitHub Support om cachade revisioner eller pull request-referenser återstår. Gamla kloner får inte senare mergeas tillbaka eftersom det kan återinföra den sanerade historiken.
+
+Efter genomförd och verifierad historiksanering:
+
+1. lägg in de tre publika repository variables,
+2. välj **GitHub Actions** som Pages-källa i stället för legacy `main`/root,
+3. fast-forward-merga den godkända releasegrenen till lokal `main`,
+4. pusha `main` först efter uttryckligt publiceringsbeslut,
+5. kontrollera Actions-jobbet och testa den publicerade adressen utloggad samt med befintliga testbehörigheter,
+6. importera verklig data först när den tomma produktionsversionen är verifierad.
+
+## Driftkontroller
+
+Efter schema- eller policyändring körs RLS-testet och Supabase security/performance advisors igen. Den nuvarande Auth-varningen om läckta lösenord är inte blockerande för Magic Link-only V1, eftersom appen inte använder lösenordsinloggning. Om lösenord aktiveras senare ska skyddet slås på innan den funktionen publiceras.
