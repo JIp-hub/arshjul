@@ -761,7 +761,7 @@ body.controls-locked #copyHelperOverlay {
   <form id="magicLinkForm" class="auth-form hidden">
     <label for="authEmail">
       E-postadress
-      <input id="authEmail" name="email" type="email" autocomplete="email" required>
+      <input id="authEmail" name="email" type="email" autocomplete="email" aria-describedby="authSummary" required>
     </label>
     <button id="magicLinkBtn" type="submit">Skicka inloggningslänk</button>
   </form>
@@ -925,6 +925,7 @@ const App = {
   _dialogReturnFocus: null,
   _pendingStatus: null,
   _authRequestId: 0,
+  _authCallbackError: null,
   backendMode: "local",
   localDataStore: null,
   remoteAdapter: null,
@@ -1465,6 +1466,14 @@ handleRemoteError(action, error) {
   this.showStatus(`Kunde inte ${action}. Försök igen eller logga in på nytt.`, "error");
 },
 
+authCallbackErrorMessage(error) {
+  const code = String(error?.code || "").toLowerCase();
+  if (code === "otp_expired") {
+    return "Inloggningslänken är ogiltig eller har gått ut. Begär en ny länk och öppna alltid det senaste mejlet.";
+  }
+  return "Inloggningen kunde inte slutföras. Begär en ny inloggningslänk och försök igen.";
+},
+
 async runDataMutation(message, operation) {
   if (this.isSupabaseMode()) this.setDataLoading(true, message);
   try {
@@ -1511,6 +1520,10 @@ async initializeBackend() {
   document.body.classList.add("supabase-mode");
   document.body.classList.remove("admin-mode");
   this.dataStore = this.createLockedDataStore();
+  this._authCallbackError = window.ArshjulSupabase?.readAuthCallbackError?.() || null;
+  if (this._authCallbackError) {
+    window.ArshjulSupabase?.clearAuthCallbackError?.();
+  }
   this.setDataLoading(true, "Ansluter till familjens data …");
 
   try {
@@ -1556,12 +1569,17 @@ async handleRemoteSession(session) {
     this.refreshViews();
 
     if (!state.authenticated) {
-      this.showStatus("Logga in för att se familjens privata data.");
+      if (this._authCallbackError) {
+        this.showStatus(this.authCallbackErrorMessage(this._authCallbackError), "error");
+      } else {
+        this.showStatus("Logga in med e-post för att se familjens privata data.");
+      }
     } else if (state.loadFailed) {
       this.showStatus("Kunde inte hämta familjedata. Försök igen eller logga in på nytt.", "error");
     } else if (!state.membership) {
       this.showStatus("Kontot är inloggat men har ännu inget familjemedlemskap.", "error");
     } else {
+      this._authCallbackError = null;
       this.showStatus(`Familjedata laddad för ${state.membership.familyName}.`);
     }
   } catch (error) {
@@ -1641,12 +1659,19 @@ async sendMagicLink() {
   if (!this.remoteAdapter || !this.dom.authEmail) return;
   const email = this.dom.authEmail.value.trim();
   if (!email) return;
+  this._authCallbackError = null;
   this.setDataLoading(true, "Förbereder inloggningslänk …");
-  const sent = await this.remoteAdapter.sendMagicLink(email);
-  this.setDataLoading(false);
+  let sent = false;
+  try {
+    sent = await this.remoteAdapter.sendMagicLink(email);
+  } finally {
+    this.setDataLoading(false);
+  }
   if (sent) {
-    this.showStatus("Inloggningslänken har skickats. Kontrollera din e-post.");
+    this.showStatus("Inloggningslänken är skickad. Kontrollera din e-post och öppna det senaste mejlet.");
     this.dom.authEmail.value = "";
+  } else if (this.remoteAdapter.wasMagicLinkRateLimited()) {
+    this.showStatus("En inloggningslänk har nyligen skickats. Kontrollera din e-post och öppna det senaste mejlet. Om inget nytt mejl finns, vänta en stund och försök igen.");
   }
 },
 
@@ -1691,7 +1716,7 @@ updateAuthorizationUI() {
     } else if (loading) {
       authSummary.textContent = "Laddar …";
     } else if (!authenticated) {
-      authSummary.textContent = "Logga in med en Magic Link för att öppna familjens privata data.";
+      authSummary.textContent = "Logga in med e-post för att öppna familjens privata data. De grå funktionerna blir tillgängliga efter inloggning.";
     } else if (!hasAccess) {
       authSummary.textContent = "Du är inloggad men väntar på att läggas till i familjen.";
     } else {

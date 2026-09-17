@@ -74,6 +74,38 @@
     }
   }
 
+  function isMagicLinkRateLimitError(error) {
+    const code = String(error?.code || "").toLowerCase();
+    const status = Number(error?.status || 0);
+    return status === 429 || code === "over_email_send_rate_limit" || code === "over_request_rate_limit";
+  }
+
+  function readAuthCallbackError(locationLike = global.location) {
+    if (!locationLike) return null;
+    const query = new URLSearchParams(String(locationLike.search || "").replace(/^\?/, ""));
+    const hash = new URLSearchParams(String(locationLike.hash || "").replace(/^#/, ""));
+    const get = (key) => hash.get(key) || query.get(key) || "";
+    const error = get("error");
+    const code = get("error_code");
+    const description = get("error_description");
+    if (!error && !code && !description) return null;
+    return { error, code, description };
+  }
+
+  function clearAuthCallbackError(locationLike = global.location, historyLike = global.history) {
+    if (!locationLike?.href || !historyLike?.replaceState) return false;
+    const url = new URL(locationLike.href);
+    const authErrorKeys = ["error", "error_code", "error_description", "sb"];
+    authErrorKeys.forEach((key) => url.searchParams.delete(key));
+
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+    authErrorKeys.forEach((key) => hash.delete(key));
+    const nextHash = hash.toString();
+    const nextUrl = `${url.pathname}${url.search}${nextHash ? `#${nextHash}` : ""}`;
+    historyLike.replaceState(null, "", nextUrl);
+    return true;
+  }
+
   function validateConfig(config) {
     const url = String(config?.supabaseUrl || "").trim();
     const key = String(config?.supabasePublishableKey || "").trim();
@@ -99,6 +131,7 @@
       this.memberNames = new Map();
       this.authSubscription = null;
       this.lastMutationRefreshFailed = false;
+      this.lastAuthError = null;
 
       this.eventStore = {
         listEvents: () => this.events.slice(),
@@ -137,7 +170,9 @@
     }
 
     onAuthChange(callback) {
-      const result = this.client.auth.onAuthStateChange((_event, session) => callback(session || null));
+      const result = this.client.auth.onAuthStateChange((event, session) => {
+        global.setTimeout(() => callback(session || null, event), 0);
+      });
       this.authSubscription = result?.data?.subscription || null;
       return this.authSubscription;
     }
@@ -145,19 +180,31 @@
     async sendMagicLink(email) {
       const normalizedEmail = String(email || "").trim();
       if (!normalizedEmail) return false;
+      this.lastAuthError = null;
       const redirectTo = String(this.config.authRedirectUrl || "").trim() || `${global.location.origin}${global.location.pathname}`;
-      const { error } = await this.client.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: redirectTo
+      try {
+        const { error } = await this.client.auth.signInWithOtp({
+          email: normalizedEmail,
+          options: {
+            shouldCreateUser: false,
+            emailRedirectTo: redirectTo
+          }
+        });
+        if (error) {
+          this.lastAuthError = error;
+          if (!isMagicLinkRateLimitError(error)) this.fail("skicka inloggningslänk", error);
+          return false;
         }
-      });
-      if (error) {
+        return true;
+      } catch (error) {
+        this.lastAuthError = error;
         this.fail("skicka inloggningslänk", error);
         return false;
       }
-      return true;
+    }
+
+    wasMagicLinkRateLimited() {
+      return isMagicLinkRateLimitError(this.lastAuthError);
     }
 
     async signOut() {
@@ -472,6 +519,9 @@
     sdkUrl: SDK_URL,
     validateConfig,
     create,
+    isMagicLinkRateLimitError,
+    readAuthCallbackError,
+    clearAuthCallbackError,
     normalizeEvent,
     normalizeBirthday
   });
