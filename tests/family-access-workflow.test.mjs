@@ -68,3 +68,19 @@ test("already approved request does not send another email", async () => {
   assert.deepEqual(await approveRequest(api, request, "admin"), { status: "approved" });
   assert.equal(calls.mail, 0);
 });
+
+test("stale processing is recovered by the next admin attempt", async () => {
+  const { request, calls, api } = fixture();
+  request.status = "processing";
+  request.processing_at = "2020-01-01T00:00:00Z";
+  assert.deepEqual(await approveRequest(api, request, "admin"), { status: "approved" });
+  assert.equal(calls.mail, 1);
+});
+
+test("temporary Auth creation failure leaves an explicit retry state", async () => {
+  const { request, calls, api } = fixture("create");
+  assert.deepEqual(await approveRequest(api, request, "admin"), { status: "retry_needed" });
+  assert.deepEqual(calls.finish, ["retry_needed"]);
+  assert.equal(calls.member, 0);
+  assert.equal(calls.mail, 0);
+});

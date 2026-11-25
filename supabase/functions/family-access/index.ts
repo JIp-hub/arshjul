@@ -101,7 +101,11 @@ Deno.serve(async (req: Request) => {
   if (Number(req.headers.get("content-length") || 0) > 4096) return response({ error: "För stor begäran" }, 413, origin);
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return response({ error: "Ogiltig begäran" }, 400, origin); }
+  try {
+    const raw = await req.text();
+    if (raw.length > 4096) return response({ error: "För stor begäran" }, 413, origin);
+    body = JSON.parse(raw);
+  } catch { return response({ error: "Ogiltig begäran" }, 400, origin); }
   if (!body || typeof body !== "object") return response({ error: "Ogiltig begäran" }, 400, origin);
 
   if (body.action === "apply") {
@@ -145,7 +149,7 @@ Deno.serve(async (req: Request) => {
   const actorId = identity.user?.id || "";
 
   if (body.action === "reject") {
-    if (!["pending", "retry_needed", "rejected"].includes(application.status)) {
+    if (!["pending", "rejected"].includes(application.status)) {
       return response({ error: "Ansökan behandlas redan" }, 409, origin);
     }
     if (application.status === "rejected") return response({ status: "rejected" }, 200, origin);

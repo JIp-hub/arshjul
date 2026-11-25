@@ -1,7 +1,6 @@
 // Kept separate so the failure and retry rules can be tested without email.
 export async function approveRequest(api, request, actorId, resend = false) {
   if (request.status === "approved" && !resend) return { status: "approved" };
-  if (request.status === "approved" && resend !== true) return { status: "conflict" };
   if (request.status === "processing" && !api.isStale(request.processing_at)) {
     return { status: "conflict" };
   }

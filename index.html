@@ -1807,7 +1807,7 @@ renderAccessRequests() {
       approve.textContent = entry.status === "retry_needed" || stuck ? "Försök igen" : "Godkänn";
       row.append(approve);
     }
-    if (["pending", "retry_needed"].includes(entry.status)) {
+    if (entry.status === "pending") {
       const reject = document.createElement("button");
       reject.type = "button";
       reject.dataset.action = "reject";
