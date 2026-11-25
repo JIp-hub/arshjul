@@ -203,6 +203,34 @@
       }
     }
 
+    async accessAction(body, requiresAdmin = false) {
+      const endpoint = `${String(this.config.supabaseUrl).replace(/\/$/, "")}/functions/v1/family-access`;
+      const headers = {
+        "Content-Type": "application/json",
+        apikey: this.config.supabasePublishableKey
+      };
+      if (requiresAdmin) {
+        const session = await this.getSession();
+        if (!session?.access_token || this.membership?.role !== "admin") {
+          throw new Error("Du behöver vara inloggad som administratör.");
+        }
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+      const response = await global.fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error(`Familjeåtkomst: HTTP ${response.status}`);
+      return response.json();
+    }
+
+    async listAccessRequests() {
+      if (this.membership?.role !== "admin") return [];
+      const { data, error } = await this.client.from("family_access_requests")
+        .select("id,display_name,email,status,created_at,processing_at")
+        .eq("family_id", this.membership.familyId)
+        .order("created_at", { ascending: false }).limit(50);
+      if (error) throw error;
+      return data || [];
+    }
+
     wasMagicLinkRateLimited() {
       return isMagicLinkRateLimitError(this.lastAuthError);
     }
