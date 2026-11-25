@@ -25,6 +25,8 @@ for each row execute function private.set_updated_at();
 alter table public.family_access_requests enable row level security;
 revoke all on public.family_access_requests from public, anon, authenticated;
 grant select on public.family_access_requests to authenticated;
+grant select, update on public.family_access_requests to service_role;
+grant select, insert, update on public.family_members to service_role;
 
 create policy family_access_requests_select_for_admins
 on public.family_access_requests for select to authenticated

@@ -36,7 +36,7 @@ function fixture(failAt = "") {
   return { request, calls, api, setFailure: (value) => { failAt = value; } };
 }
 
-test("approval creates one unconfirmed account, membership, and email", async () => {
+test("approval creates one account, membership, and email", async () => {
   const { request, calls, api } = fixture();
   assert.deepEqual(await approveRequest(api, request, "admin"), { status: "approved" });
   assert.deepEqual(calls, { create: 1, member: 1, mail: 1, finish: ["approved"] });

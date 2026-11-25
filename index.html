@@ -2,19 +2,46 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f8fbff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Årshjulet">
   <title>Årshjul</title>
-  <link rel="icon" href="data:,">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="./icons/arshjulet.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
 <style>
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     line-height: 1.5;
-    margin: 2rem;
+    margin: 0;
+    padding: 2rem;
+    padding-top: max(2rem, calc(env(safe-area-inset-top, 0px) + 1rem));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    box-sizing: border-box;
+    min-height: 100vh;
+    background: #fff;
   }
 
   h1 {
     margin-bottom: 1.25rem;
+  }
+
+  .install-help {
+    max-width: 720px;
+    margin: -0.5rem 0 1rem;
+    color: #17365d;
+  }
+  .install-help summary { cursor: pointer; }
+  .install-help p { margin: 0.4rem 0; }
+  .install-help button, #showCodeFormBtn {
+    font: inherit;
+    padding: 0.45rem 0.65rem;
+    margin-top: 0.4rem;
   }
 
   /* Controls */
@@ -179,6 +206,8 @@ body.dialog-open {
   padding: 0.5rem 0.65rem;
 }
 
+#otpCode { font-variant-numeric: tabular-nums; letter-spacing: 0.12em; }
+
 .access-request-row {
   padding: 0.7rem 0;
   border-top: 1px solid #d8e1ec;
@@ -212,18 +241,25 @@ body.supabase-mode #exitAdminBtn {
 
 @media (max-width: 600px) {
   body {
-    margin: 1rem;
+    padding: 1rem;
+    padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
   }
 
   .overlay {
     align-items: flex-start;
-    padding: 0.75rem;
+    padding: max(0.75rem, env(safe-area-inset-top, 0px))
+      max(0.75rem, env(safe-area-inset-right, 0px))
+      max(0.75rem, env(safe-area-inset-bottom, 0px))
+      max(0.75rem, env(safe-area-inset-left, 0px));
   }
 
   .overlay-content {
     width: 100%;
     max-height: calc(100vh - 1.5rem);
-    max-height: calc(100dvh - 1.5rem);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem);
     padding: 1rem;
   }
 }
@@ -770,6 +806,14 @@ body.controls-locked #copyHelperOverlay {
 
 <h1>Årshjul</h1>
 
+<details id="installHelp" class="install-help">
+  <summary>Installera Årshjulet på mobilen</summary>
+  <p><strong>iPhone:</strong> Öppna länken i Safari, tryck på Dela och välj Lägg till på hemskärmen.</p>
+  <p><strong>Android:</strong> Öppna länken i Chrome, tryck på menyn och välj Installera appen eller Lägg till på startskärmen.</p>
+  <p>Om länken öppnas i Messenger, välj först Öppna i Safari eller Chrome.</p>
+  <button id="installAppBtn" class="hidden" type="button">Installera appen</button>
+</details>
+
 <section id="authPanel" class="auth-panel hidden" aria-labelledby="authPanelTitle">
   <h2 id="authPanelTitle">Familjedata</h2>
   <p id="authSummary" aria-live="polite"></p>
@@ -779,8 +823,20 @@ body.controls-locked #copyHelperOverlay {
       E-postadress
       <input id="authEmail" name="email" type="email" autocomplete="email" aria-describedby="authSummary" required>
     </label>
-    <button id="magicLinkBtn" type="submit">Skicka inloggningslänk</button>
+    <button id="magicLinkBtn" type="submit">Skicka inloggningslänk och kod</button>
   </form>
+
+  <button id="showCodeFormBtn" class="hidden" type="button">Jag har en engångskod</button>
+  <form id="otpForm" class="auth-form hidden">
+    <label for="otpEmail">E-postadress
+      <input id="otpEmail" name="email" type="email" autocomplete="email" required>
+    </label>
+    <label for="otpCode">Engångskod från mejlet
+      <input id="otpCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8" required>
+    </label>
+    <button id="verifyCodeBtn" type="submit">Logga in med kod</button>
+  </form>
+  <p id="otpHelp" class="hidden">Om mejllänken öppnas i Safari medan du använder hemskärmsappen, ange koden här i appen. Om länken redan använts, begär ett nytt mejl.</p>
 
   <div id="authActions" class="auth-actions hidden">
     <button id="importLocalEventsBtn" class="hidden" type="button">Importera lokala händelser</button>
@@ -967,6 +1023,8 @@ const App = {
   _pendingStatus: null,
   _authRequestId: 0,
   _authCallbackError: null,
+  _installPrompt: null,
+  otpFormOpen: false,
   backendMode: "local",
   localDataStore: null,
   remoteAdapter: null,
@@ -1063,6 +1121,14 @@ const App = {
     magicLinkForm: null,
     authEmail: null,
     magicLinkBtn: null,
+    otpForm: null,
+    otpEmail: null,
+    otpCode: null,
+    verifyCodeBtn: null,
+    showCodeFormBtn: null,
+    otpHelp: null,
+    installHelp: null,
+    installAppBtn: null,
     authActions: null,
     signOutBtn: null,
     importLocalEventsBtn: null,
@@ -1723,11 +1789,53 @@ async sendMagicLink() {
     this.setDataLoading(false);
   }
   if (sent) {
-    this.showStatus("Inloggningslänken är skickad. Kontrollera din e-post och öppna det senaste mejlet.");
-    this.dom.authEmail.value = "";
+    this.dom.otpEmail.value = email;
+    this.otpFormOpen = true;
+    this.updateAuthorizationUI();
+    this.showStatus(this.isStandaloneApp()
+      ? "Mejlet är skickat. Öppna hemskärmsappen igen och ange engångskoden från mejlet här."
+      : "Mejlet är skickat. Använd länken eller ange engångskoden nedan.");
   } else if (this.remoteAdapter.wasMagicLinkRateLimited()) {
     this.showStatus("En inloggningslänk har nyligen skickats. Kontrollera din e-post och öppna det senaste mejlet. Om inget nytt mejl finns, vänta en stund och försök igen.");
   }
+},
+
+async verifyEmailCode() {
+  if (!this.remoteAdapter) return;
+  const email = this.dom.otpEmail.value.trim();
+  const code = this.dom.otpCode.value.trim();
+  this.setDataLoading(true, "Kontrollerar engångskoden …");
+  let session;
+  try {
+    session = await this.remoteAdapter.verifyEmailCode(email, code);
+  } finally {
+    this.setDataLoading(false);
+  }
+  if (!session) {
+    this.showStatus("Koden kunde inte användas. Kontrollera det senaste mejlet eller begär en ny kod.", "error");
+    return;
+  }
+  this.dom.otpCode.value = "";
+  this.otpFormOpen = false;
+  await this.handleRemoteSession(session);
+},
+
+isStandaloneApp() {
+  return window.navigator.standalone === true ||
+    window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+},
+
+updateInstallUI() {
+  this.dom.installHelp?.classList.toggle("hidden", this.isStandaloneApp());
+  this.dom.installAppBtn?.classList.toggle("hidden", !this._installPrompt || this.isStandaloneApp());
+},
+
+async promptInstall() {
+  if (!this._installPrompt) return;
+  const prompt = this._installPrompt;
+  this._installPrompt = null;
+  this.updateInstallUI();
+  await prompt.prompt();
 },
 
 async signOut() {
@@ -1879,8 +1987,12 @@ updateAuthorizationUI() {
   }
 
   magicLinkForm?.classList.toggle("hidden", authenticated);
+  this.dom.showCodeFormBtn?.classList.toggle("hidden", authenticated);
+  this.dom.otpForm?.classList.toggle("hidden", authenticated || !this.otpFormOpen);
+  this.dom.otpHelp?.classList.toggle("hidden", authenticated || !this.otpFormOpen);
   authActions?.classList.toggle("hidden", !authenticated);
   if (magicLinkBtn) magicLinkBtn.disabled = loading;
+  if (this.dom.verifyCodeBtn) this.dom.verifyCodeBtn.disabled = loading;
   if (signOutBtn) signOutBtn.disabled = loading;
 
   if (authSummary) {
@@ -1889,7 +2001,9 @@ updateAuthorizationUI() {
     } else if (loading) {
       authSummary.textContent = "Laddar …";
     } else if (!authenticated) {
-      authSummary.textContent = "Logga in med e-post för att öppna familjens privata data. De grå funktionerna blir tillgängliga efter inloggning.";
+      authSummary.textContent = this.isStandaloneApp()
+        ? "Hemskärmsappen har en egen inloggning. Använd engångskoden från mejlet här i appen för att öppna familjens privata data."
+        : "Logga in med e-post för att öppna familjens privata data. De grå funktionerna blir tillgängliga efter inloggning.";
     } else if (!hasAccess) {
       authSummary.textContent = "Du är inloggad men väntar på att läggas till i familjen.";
     } else {
@@ -1991,6 +2105,14 @@ cacheDom() {
   this.dom.magicLinkForm = document.getElementById("magicLinkForm");
   this.dom.authEmail = document.getElementById("authEmail");
   this.dom.magicLinkBtn = document.getElementById("magicLinkBtn");
+  this.dom.otpForm = document.getElementById("otpForm");
+  this.dom.otpEmail = document.getElementById("otpEmail");
+  this.dom.otpCode = document.getElementById("otpCode");
+  this.dom.verifyCodeBtn = document.getElementById("verifyCodeBtn");
+  this.dom.showCodeFormBtn = document.getElementById("showCodeFormBtn");
+  this.dom.otpHelp = document.getElementById("otpHelp");
+  this.dom.installHelp = document.getElementById("installHelp");
+  this.dom.installAppBtn = document.getElementById("installAppBtn");
   this.dom.authActions = document.getElementById("authActions");
   this.dom.signOutBtn = document.getElementById("signOutBtn");
   this.dom.importLocalEventsBtn = document.getElementById("importLocalEventsBtn");
@@ -3655,6 +3777,29 @@ deleteUserEventById(id) {
     });
   }
 
+  this.dom.otpForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await this.verifyEmailCode();
+  });
+  this.dom.showCodeFormBtn?.addEventListener("click", () => {
+    this.otpFormOpen = !this.otpFormOpen;
+    if (this.otpFormOpen && !this.dom.otpEmail.value) {
+      this.dom.otpEmail.value = this.dom.authEmail.value.trim();
+    }
+    this.updateAuthorizationUI();
+    if (this.otpFormOpen) this.dom.otpCode.focus();
+  });
+  this.dom.installAppBtn?.addEventListener("click", () => this.promptInstall());
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    this._installPrompt = event;
+    this.updateInstallUI();
+  });
+  window.addEventListener("appinstalled", () => {
+    this._installPrompt = null;
+    this.updateInstallUI();
+  });
+
   this.dom.accessApplyForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     await this.submitAccessApplication();
@@ -3808,6 +3953,7 @@ deleteUserEventById(id) {
     this.selectedYear = this.currentYear;
     this.loadFamilyCode();
     this.cacheDom();
+    this.updateInstallUI();
 
     if (this.dom.familyCodeInput) {
       this.dom.familyCodeInput.value = this.getCurrentFamilyCode();

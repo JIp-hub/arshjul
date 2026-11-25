@@ -203,6 +203,31 @@
       }
     }
 
+    async verifyEmailCode(email, code) {
+      const normalizedEmail = String(email || "").trim();
+      const normalizedCode = String(code || "").replace(/\s+/g, "");
+      if (!normalizedEmail || !/^\d{6,8}$/.test(normalizedCode)) {
+        this.lastAuthError = new Error("Ogiltig e-postadress eller engångskod.");
+        return null;
+      }
+      this.lastAuthError = null;
+      try {
+        const { data, error } = await this.client.auth.verifyOtp({
+          email: normalizedEmail,
+          token: normalizedCode,
+          type: "email"
+        });
+        if (error || !data?.session) {
+          this.lastAuthError = error || new Error("Ingen session returnerades.");
+          return null;
+        }
+        return data.session;
+      } catch (error) {
+        this.lastAuthError = error;
+        return null;
+      }
+    }
+
     async accessAction(body, requiresAdmin = false) {
       const endpoint = `${String(this.config.supabaseUrl).replace(/\/$/, "")}/functions/v1/family-access`;
       const headers = {

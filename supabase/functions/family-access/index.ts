@@ -65,7 +65,9 @@ function workflowApi() {
       return data as string | null;
     },
     async createUser(email: string) {
-      const { data, error } = await admin.auth.admin.createUser({ email, email_confirm: false });
+      // Auth rejects OTP delivery to an unconfirmed account when public signup is closed.
+      // No password is set; family RLS also requires a successful email-code sign-in.
+      const { data, error } = await admin.auth.admin.createUser({ email, email_confirm: true });
       if (error || !data.user?.id) throw error || new Error("Auth user missing");
       return data.user.id;
     },
