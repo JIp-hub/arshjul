@@ -253,14 +253,7 @@ body.supabase-mode #exitAdminBtn {
     padding-top: max(5rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
   }
 
-  body.ios-standalone > h1 {
-    position: sticky;
-    top: max(4rem, env(safe-area-inset-top, 0px));
-    z-index: 20;
-    margin-top: 0;
-    padding: 0.2rem 0;
-    background: #fff;
-  }
+  body.ios-standalone > h1 { margin-top: 0; }
 
   body.ios-standalone #otpCode {
     scroll-margin-top: 9rem;
@@ -1836,6 +1829,28 @@ async verifyEmailCode() {
   this.dom.otpCode.value = "";
   this.otpFormOpen = false;
   await this.handleRemoteSession(session);
+  this.resetStandaloneScroll();
+},
+
+resetStandaloneScroll() {
+  if (!this.isStandaloneApp()) return;
+  this.dom.otpCode?.blur();
+  this.dom.otpEmail?.blur();
+  const top = () => {
+    window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+  };
+  top();
+  window.requestAnimationFrame(top);
+  // iOS can shift the visual viewport again while its keyboard closes.
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const onResize = () => top();
+  viewport.addEventListener("resize", onResize, { once: true });
+  window.setTimeout(() => {
+    viewport.removeEventListener("resize", onResize);
+    top();
+  }, 400);
 },
 
 isStandaloneApp() {

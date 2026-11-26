@@ -67,12 +67,16 @@ try {
     userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" });
   await installed.addInitScript(() => {
     Object.defineProperty(navigator, "standalone", { value: true });
-    window.supabase = { createClient: () => ({ auth: {
+    const emptyQuery = () => ({
+      select() { return this; }, eq() { return this; }, order() { return this; },
+      then(resolve) { resolve({ data: [], error: null }); }
+    });
+    window.supabase = { createClient: () => ({ from: emptyQuery, auth: {
       getSession: async () => ({ data: { session: null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       signInWithOtp: async (payload) => { window.__otpSend = payload; return { error: null }; },
       verifyOtp: async (payload) => { window.__otpVerify = payload;
-        return { data: { session: null }, error: { code: "invalid_otp" } }; }
+        return { data: { session: { user: { id: "synthetic-user" }, access_token: "synthetic-token" } }, error: null }; }
     } }) };
   });
   const installedPage = await installed.newPage();
@@ -88,9 +92,15 @@ try {
   await installedPage.locator("#showCodeFormBtn").click();
   await installedPage.locator("#otpForm").waitFor({ state: "visible" });
   assert.equal(await installedPage.locator("#otpCode").evaluate((input) => document.activeElement === input), false);
+  const openingLayout = await installedPage.evaluate(() => ({
+    headingBottom: document.querySelector("h1").getBoundingClientRect().bottom,
+    instructionsTop: document.querySelector("#authPanelTitle").getBoundingClientRect().top
+  }));
+  assert.ok(openingLayout.headingBottom < openingLayout.instructionsTop,
+    "heading must not cover login instructions");
   await installedPage.evaluate(() => window.scrollTo(0, 400));
-  const headingTop = await installedPage.locator("h1").evaluate((heading) => heading.getBoundingClientRect().top);
-  assert.ok(headingTop >= 64, "standalone heading must stay below status area when scrolled");
+  const scrolledHeadingBottom = await installedPage.locator("h1").evaluate((heading) => heading.getBoundingClientRect().bottom);
+  assert.ok(scrolledHeadingBottom < 64, "heading must scroll away instead of covering content");
   await installedPage.locator("#showCodeFormBtn").click();
   await installedPage.locator("#authEmail").fill("member@example.invalid");
   await installedPage.locator("#magicLinkBtn").click();
@@ -102,6 +112,16 @@ try {
   await installedPage.waitForFunction(() => Boolean(window.__otpVerify));
   const verified = await installedPage.evaluate(() => window.__otpVerify);
   assert.deepEqual(verified, { email: "member@example.invalid", token: "123456", type: "email" });
+  await installedPage.locator("#authActions").waitFor({ state: "visible" });
+  await installedPage.waitForTimeout(450);
+  const signedInLayout = await installedPage.evaluate(() => ({
+    scrollY: window.scrollY,
+    headingTop: document.querySelector("h1").getBoundingClientRect().top,
+    navigationTop: document.querySelector("#showWheelBtn").getBoundingClientRect().top
+  }));
+  assert.ok(signedInLayout.scrollY <= 1, "successful login must return to the top");
+  assert.ok(signedInLayout.headingTop >= 64 && signedInLayout.navigationTop > signedInLayout.headingTop,
+    "heading and navigation must remain below the status area after login");
   await installed.close();
   console.log("PASS standalone sign-in guidance and email-code controls");
 } finally {
