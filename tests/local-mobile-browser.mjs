@@ -122,6 +122,18 @@ try {
   assert.ok(signedInLayout.scrollY <= 1, "successful login must return to the top");
   assert.ok(signedInLayout.headingTop >= 64 && signedInLayout.navigationTop > signedInLayout.headingTop,
     "heading and navigation must remain below the status area after login");
+  const unsafeNavigation = await installedPage.evaluate(() => {
+    const nav = document.querySelector(".primary-controls");
+    window.scrollTo(0, nav.getBoundingClientRect().top - 20);
+    const bounds = nav.getBoundingClientRect();
+    document.dispatchEvent(new Event("visibilitychange"));
+    return { top: bounds.top, bottom: bounds.bottom };
+  });
+  assert.ok(unsafeNavigation.top < 80 && unsafeNavigation.bottom > 0,
+    "test must position navigation in the unsafe top area");
+  await installedPage.waitForTimeout(450);
+  assert.ok(await installedPage.evaluate(() => window.scrollY) <= 1,
+    "resuming the installed app must correct unsafe scroll restoration");
   await installed.close();
   console.log("PASS standalone sign-in guidance and email-code controls");
 } finally {

@@ -1688,6 +1688,7 @@ async initializeBackend() {
 async handleRemoteSession(session) {
   if (!this.remoteAdapter) return;
   const requestId = ++this._authRequestId;
+  const wasAuthenticated = Boolean(this.currentUser);
   this.setDataLoading(true, session ? "Hämtar familjens data …" : "Kontrollerar inloggningen …");
 
   try {
@@ -1699,6 +1700,7 @@ async handleRemoteSession(session) {
     this.applyAdminMode();
     this.refreshViews();
     await this.loadAccessRequests();
+    if (state.authenticated && !wasAuthenticated) this.resetStandaloneScroll();
 
     if (!state.authenticated) {
       if (this._authCallbackError) {
@@ -1851,6 +1853,14 @@ resetStandaloneScroll() {
     viewport.removeEventListener("resize", onResize);
     top();
   }, 400);
+},
+
+correctUnsafeTopOnResume() {
+  if (!this.isStandaloneApp() || !this.currentUser) return;
+  const navigation = document.querySelector(".primary-controls");
+  if (!navigation) return;
+  const bounds = navigation.getBoundingClientRect();
+  if (bounds.top < 80 && bounds.bottom > 0) this.resetStandaloneScroll();
 },
 
 isStandaloneApp() {
@@ -3833,6 +3843,10 @@ deleteUserEventById(id) {
   window.addEventListener("appinstalled", () => {
     this._installPrompt = null;
     this.updateInstallUI();
+  });
+  window.addEventListener("pageshow", () => this.correctUnsafeTopOnResume());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") this.correctUnsafeTopOnResume();
   });
 
   this.dom.accessApplyForm?.addEventListener("submit", async (event) => {
