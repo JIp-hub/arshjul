@@ -1,5 +1,7 @@
 # Supabase och publicering för V1
 
+För det föreslagna ansökningsflödet inför familjedelning, se [FAMILY_ACCESS_RELEASE.md](FAMILY_ACCESS_RELEASE.md). Det är inte driftsatt.
+
 V1 använder Supabase för autentisering och gemensamma privata familjedata. Projektet finns, de tre versionshanterade migrationerna är körda och RLS är aktivt. Den här filen beskriver den nuvarande lösningen och den kontrollerade releaseprocessen.
 
 ## Klientkonfiguration

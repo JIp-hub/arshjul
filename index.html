@@ -2,18 +2,46 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f8fbff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Årshjulet">
   <title>Årshjul</title>
-  <link rel="icon" href="data:,">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="./icons/arshjulet.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
 <style>
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     line-height: 1.5;
-    margin: 2rem;
+    margin: 0;
+    padding: 2rem;
+    padding-top: max(2rem, calc(env(safe-area-inset-top, 0px) + 1rem));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(2rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    box-sizing: border-box;
+    min-height: 100vh;
+    background: #fff;
   }
 
   h1 {
     margin-bottom: 1.25rem;
+  }
+
+  .install-help {
+    max-width: 720px;
+    margin: -0.5rem 0 1rem;
+    color: #17365d;
+  }
+  .install-help summary { cursor: pointer; }
+  .install-help p { margin: 0.4rem 0; }
+  .install-help button, #showCodeFormBtn {
+    font: inherit;
+    padding: 0.45rem 0.65rem;
+    margin-top: 0.4rem;
   }
 
   /* Controls */
@@ -178,6 +206,23 @@ body.dialog-open {
   padding: 0.5rem 0.65rem;
 }
 
+#otpCode { font-variant-numeric: tabular-nums; letter-spacing: 0.12em; }
+
+.access-request-row {
+  padding: 0.7rem 0;
+  border-top: 1px solid #d8e1ec;
+}
+.access-request-row strong, .access-request-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.access-request-row button, #shareFamilyLinkBtn {
+  font: inherit;
+  padding: 0.45rem 0.65rem;
+  margin: 0.35rem 0.35rem 0 0;
+}
+.access-honeypot { position: absolute; left: -10000px; }
+
 body.data-loading #months,
 body.data-loading #overview,
 body.data-loading #wheelView {
@@ -196,18 +241,36 @@ body.supabase-mode #exitAdminBtn {
 
 @media (max-width: 600px) {
   body {
-    margin: 1rem;
+    padding: 1rem;
+    padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  /* iOS can report a smaller safe-area inset while the keyboard is opening. */
+  body.ios-standalone {
+    padding-top: max(5rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+  }
+
+  body.ios-standalone > h1 { margin-top: 0; }
+
+  body.ios-standalone #otpCode {
+    scroll-margin-top: 9rem;
   }
 
   .overlay {
     align-items: flex-start;
-    padding: 0.75rem;
+    padding: max(0.75rem, env(safe-area-inset-top, 0px))
+      max(0.75rem, env(safe-area-inset-right, 0px))
+      max(0.75rem, env(safe-area-inset-bottom, 0px))
+      max(0.75rem, env(safe-area-inset-left, 0px));
   }
 
   .overlay-content {
     width: 100%;
     max-height: calc(100vh - 1.5rem);
-    max-height: calc(100dvh - 1.5rem);
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem);
     padding: 1rem;
   }
 }
@@ -754,6 +817,14 @@ body.controls-locked #copyHelperOverlay {
 
 <h1>Årshjul</h1>
 
+<details id="installHelp" class="install-help">
+  <summary>Installera Årshjulet på mobilen</summary>
+  <p><strong>iPhone:</strong> Öppna länken i Safari, tryck på Dela och välj Lägg till på hemskärmen.</p>
+  <p><strong>Android:</strong> Öppna länken i Chrome, tryck på menyn och välj Installera appen eller Lägg till på startskärmen.</p>
+  <p>Om länken öppnas i Messenger, välj först Öppna i Safari eller Chrome.</p>
+  <button id="installAppBtn" class="hidden" type="button">Installera appen</button>
+</details>
+
 <section id="authPanel" class="auth-panel hidden" aria-labelledby="authPanelTitle">
   <h2 id="authPanelTitle">Familjedata</h2>
   <p id="authSummary" aria-live="polite"></p>
@@ -763,13 +834,50 @@ body.controls-locked #copyHelperOverlay {
       E-postadress
       <input id="authEmail" name="email" type="email" autocomplete="email" aria-describedby="authSummary" required>
     </label>
-    <button id="magicLinkBtn" type="submit">Skicka inloggningslänk</button>
+    <button id="magicLinkBtn" type="submit">Skicka inloggningslänk och kod</button>
   </form>
+
+  <button id="showCodeFormBtn" class="hidden" type="button">Jag har en engångskod</button>
+  <form id="otpForm" class="auth-form hidden">
+    <label for="otpEmail">E-postadress
+      <input id="otpEmail" name="email" type="email" autocomplete="email" required>
+    </label>
+    <label for="otpCode">Engångskod från mejlet
+      <input id="otpCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8" required>
+    </label>
+    <button id="verifyCodeBtn" type="submit">Logga in med kod</button>
+  </form>
+  <p id="otpHelp" class="hidden">Om mejllänken öppnas i Safari medan du använder hemskärmsappen, ange koden här i appen. Om länken redan använts, begär ett nytt mejl.</p>
 
   <div id="authActions" class="auth-actions hidden">
     <button id="importLocalEventsBtn" class="hidden" type="button">Importera lokala händelser</button>
     <button id="signOutBtn" type="button">Logga ut</button>
   </div>
+</section>
+
+<section id="accessApplyPanel" class="auth-panel hidden" aria-labelledby="accessApplyTitle">
+  <h2 id="accessApplyTitle">Ansök om familjeåtkomst</h2>
+  <p>Skriv ditt namn och din egen e-postadress. En administratör granskar ansökan. Om den godkänns får du en inloggningslänk via e-post.</p>
+  <form id="accessApplyForm" class="auth-form">
+    <label for="accessName">Namn
+      <input id="accessName" name="name" type="text" autocomplete="name" maxlength="120" required>
+    </label>
+    <label for="accessEmail">E-postadress
+      <input id="accessEmail" name="email" type="email" autocomplete="email" maxlength="254" required>
+    </label>
+    <label class="access-honeypot" aria-hidden="true">Webbplats
+      <input id="accessWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
+    </label>
+    <button id="accessApplyBtn" type="submit">Skicka ansökan</button>
+  </form>
+  <p id="accessApplyStatus" role="status" aria-live="polite"></p>
+</section>
+
+<section id="accessAdminPanel" class="auth-panel hidden" aria-labelledby="accessAdminTitle">
+  <h2 id="accessAdminTitle">Familjeåtkomst</h2>
+  <button id="shareFamilyLinkBtn" type="button">Kopiera länk till familjen</button>
+  <p id="accessAdminStatus" role="status" aria-live="polite"></p>
+  <div id="accessRequestList"></div>
 </section>
 
 <div class="primary-controls" aria-label="Vy och år">
@@ -926,11 +1034,15 @@ const App = {
   _pendingStatus: null,
   _authRequestId: 0,
   _authCallbackError: null,
+  _installPrompt: null,
+  otpFormOpen: false,
   backendMode: "local",
   localDataStore: null,
   remoteAdapter: null,
   currentUser: null,
   currentMembership: null,
+  currentAccessRequests: [],
+  joinCode: new URLSearchParams(window.location.search).get("join") || "",
   primaryView: "wheel",
   previousPrimaryView: "wheel",
   selectedWheelMonth: new Date().getMonth(),
@@ -1020,9 +1132,28 @@ const App = {
     magicLinkForm: null,
     authEmail: null,
     magicLinkBtn: null,
+    otpForm: null,
+    otpEmail: null,
+    otpCode: null,
+    verifyCodeBtn: null,
+    showCodeFormBtn: null,
+    otpHelp: null,
+    installHelp: null,
+    installAppBtn: null,
     authActions: null,
     signOutBtn: null,
     importLocalEventsBtn: null,
+    accessApplyPanel: null,
+    accessApplyForm: null,
+    accessName: null,
+    accessEmail: null,
+    accessWebsite: null,
+    accessApplyBtn: null,
+    accessApplyStatus: null,
+    accessAdminPanel: null,
+    accessAdminStatus: null,
+    accessRequestList: null,
+    shareFamilyLinkBtn: null,
 
     openSound: null,
     yearSelect: null,
@@ -1557,6 +1688,7 @@ async initializeBackend() {
 async handleRemoteSession(session) {
   if (!this.remoteAdapter) return;
   const requestId = ++this._authRequestId;
+  const wasAuthenticated = Boolean(this.currentUser);
   this.setDataLoading(true, session ? "Hämtar familjens data …" : "Kontrollerar inloggningen …");
 
   try {
@@ -1567,6 +1699,8 @@ async handleRemoteSession(session) {
     this.currentMembership = state.membership;
     this.applyAdminMode();
     this.refreshViews();
+    await this.loadAccessRequests();
+    if (state.authenticated && !wasAuthenticated) this.resetStandaloneScroll();
 
     if (!state.authenticated) {
       if (this._authCallbackError) {
@@ -1668,11 +1802,85 @@ async sendMagicLink() {
     this.setDataLoading(false);
   }
   if (sent) {
-    this.showStatus("Inloggningslänken är skickad. Kontrollera din e-post och öppna det senaste mejlet.");
-    this.dom.authEmail.value = "";
+    this.dom.otpEmail.value = email;
+    this.otpFormOpen = true;
+    this.updateAuthorizationUI();
+    this.showStatus(this.isStandaloneApp()
+      ? "Mejlet är skickat. Öppna hemskärmsappen igen och ange engångskoden från mejlet här."
+      : "Mejlet är skickat. Använd länken eller ange engångskoden nedan.");
   } else if (this.remoteAdapter.wasMagicLinkRateLimited()) {
     this.showStatus("En inloggningslänk har nyligen skickats. Kontrollera din e-post och öppna det senaste mejlet. Om inget nytt mejl finns, vänta en stund och försök igen.");
   }
+},
+
+async verifyEmailCode() {
+  if (!this.remoteAdapter) return;
+  const email = this.dom.otpEmail.value.trim();
+  const code = this.dom.otpCode.value.trim();
+  this.setDataLoading(true, "Kontrollerar engångskoden …");
+  let session;
+  try {
+    session = await this.remoteAdapter.verifyEmailCode(email, code);
+  } finally {
+    this.setDataLoading(false);
+  }
+  if (!session) {
+    this.showStatus("Koden kunde inte användas. Kontrollera det senaste mejlet eller begär en ny kod.", "error");
+    return;
+  }
+  this.dom.otpCode.value = "";
+  this.otpFormOpen = false;
+  await this.handleRemoteSession(session);
+  this.resetStandaloneScroll();
+},
+
+resetStandaloneScroll() {
+  if (!this.isStandaloneApp()) return;
+  this.dom.otpCode?.blur();
+  this.dom.otpEmail?.blur();
+  const top = () => {
+    window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+  };
+  top();
+  window.requestAnimationFrame(top);
+  // iOS can shift the visual viewport again while its keyboard closes.
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const onResize = () => top();
+  viewport.addEventListener("resize", onResize, { once: true });
+  window.setTimeout(() => {
+    viewport.removeEventListener("resize", onResize);
+    top();
+  }, 400);
+},
+
+correctUnsafeTopOnResume() {
+  if (!this.isStandaloneApp() || !this.currentUser) return;
+  const navigation = document.querySelector(".primary-controls");
+  if (!navigation) return;
+  const bounds = navigation.getBoundingClientRect();
+  if (bounds.top < 80 && bounds.bottom > 0) this.resetStandaloneScroll();
+},
+
+isStandaloneApp() {
+  return window.navigator.standalone === true ||
+    window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+},
+
+updateInstallUI() {
+  document.body.classList.toggle("ios-standalone",
+    /iPhone|iPad|iPod/.test(window.navigator.userAgent) && this.isStandaloneApp());
+  this.dom.installHelp?.classList.toggle("hidden", this.isStandaloneApp());
+  this.dom.installAppBtn?.classList.toggle("hidden", !this._installPrompt || this.isStandaloneApp());
+},
+
+async promptInstall() {
+  if (!this._installPrompt) return;
+  const prompt = this._installPrompt;
+  this._installPrompt = null;
+  this.updateInstallUI();
+  await prompt.prompt();
 },
 
 async signOut() {
@@ -1681,6 +1889,116 @@ async signOut() {
   const signedOut = await this.remoteAdapter.signOut();
   if (signedOut) await this.handleRemoteSession(null);
   else this.setDataLoading(false);
+},
+
+async submitAccessApplication() {
+  if (!this.remoteAdapter || !this.dom.accessApplyForm) return;
+  const name = this.dom.accessName.value.trim();
+  const email = this.dom.accessEmail.value.trim();
+  this.dom.accessApplyBtn.disabled = true;
+  this.dom.accessApplyStatus.textContent = "Skickar ansökan …";
+  try {
+    await this.remoteAdapter.accessAction({
+      action: "apply", code: this.joinCode, name, email,
+      website: this.dom.accessWebsite.value
+    });
+    this.dom.accessApplyStatus.textContent = "Tack! Om länken är giltig har ansökan tagits emot. Du får e-post om administratören godkänner den.";
+    this.dom.accessApplyForm.reset();
+  } catch {
+    this.dom.accessApplyStatus.textContent = "Ansökan kunde inte skickas just nu. Försök igen senare.";
+  } finally {
+    this.dom.accessApplyBtn.disabled = false;
+  }
+},
+
+async loadAccessRequests() {
+  if (!this.remoteAdapter || this.currentMembership?.role !== "admin") {
+    this.currentAccessRequests = [];
+    this.renderAccessRequests();
+    return;
+  }
+  try {
+    this.currentAccessRequests = await this.remoteAdapter.listAccessRequests();
+    this.renderAccessRequests();
+  } catch {
+    this.dom.accessAdminStatus.textContent = "Kunde inte hämta ansökningarna. Försök ladda om sidan.";
+  }
+},
+
+renderAccessRequests() {
+  const list = this.dom.accessRequestList;
+  if (!list) return;
+  list.replaceChildren();
+  const rows = this.currentAccessRequests.filter((entry) => entry.status !== "approved");
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "Inga ansökningar att behandla.";
+    list.append(empty);
+    return;
+  }
+  const labels = {
+    pending: "Väntar", processing: "Behandlas", retry_needed: "Behöver nytt försök",
+    rejected: "Avslagen"
+  };
+  rows.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "access-request-row";
+    const name = document.createElement("strong");
+    name.textContent = entry.display_name;
+    const email = document.createElement("span");
+    email.textContent = entry.email;
+    const status = document.createElement("span");
+    status.textContent = labels[entry.status] || entry.status;
+    row.append(name, email, status);
+    const stuck = entry.status === "processing" &&
+      (!entry.processing_at || Date.now() - Date.parse(entry.processing_at) > 120000);
+    if (["pending", "retry_needed", "rejected"].includes(entry.status) || stuck) {
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.dataset.action = "approve";
+      approve.dataset.id = entry.id;
+      approve.textContent = entry.status === "retry_needed" || stuck ? "Försök igen" : "Godkänn";
+      row.append(approve);
+    }
+    if (entry.status === "pending") {
+      const reject = document.createElement("button");
+      reject.type = "button";
+      reject.dataset.action = "reject";
+      reject.dataset.id = entry.id;
+      reject.textContent = "Avslå";
+      row.append(reject);
+    }
+    list.append(row);
+  });
+},
+
+async actOnAccessRequest(action, id) {
+  if (!this.remoteAdapter || this.currentMembership?.role !== "admin") return;
+  this.dom.accessAdminStatus.textContent = action === "approve" ? "Godkänner och skickar länk …" : "Avslår …";
+  this.dom.accessRequestList.querySelectorAll("button").forEach((button) => button.disabled = true);
+  try {
+    await this.remoteAdapter.accessAction({ action, id }, true);
+    this.dom.accessAdminStatus.textContent = action === "approve"
+      ? "Godkänd. En inloggningslänk har skickats till den angivna e-postadressen."
+      : "Ansökan är avslagen.";
+  } catch {
+    this.dom.accessAdminStatus.textContent = "Åtgärden kunde inte slutföras. Kontrollera listan och försök igen.";
+  } finally {
+    await this.loadAccessRequests();
+  }
+},
+
+async copyFamilyShareLink() {
+  const code = this.currentMembership?.inviteCode;
+  if (!code || this.currentMembership?.role !== "admin") return;
+  const link = new URL(window.location.origin + window.location.pathname);
+  link.searchParams.set("join", code);
+  try {
+    await navigator.clipboard.writeText(link.href);
+    this.dom.accessAdminStatus.textContent = "Länken är kopierad. Skicka den i familjechatten.";
+  } catch {
+    this.dom.accessAdminStatus.textContent = "Kunde inte kopiera länken. Försök igen.";
+  }
 },
 
 updateAuthorizationUI() {
@@ -1705,9 +2023,21 @@ updateAuthorizationUI() {
   const authenticated = Boolean(this.currentUser);
   const hasAccess = this.hasRemoteFamilyAccess();
 
+  this.dom.accessApplyPanel?.classList.toggle("hidden",
+    this.backendMode !== "supabase" || hasAccess || !/^[A-Za-z0-9_-]{16,128}$/.test(this.joinCode));
+  this.dom.accessAdminPanel?.classList.toggle("hidden",
+    this.backendMode !== "supabase" || this.currentMembership?.role !== "admin");
+  if (this.dom.shareFamilyLinkBtn) {
+    this.dom.shareFamilyLinkBtn.disabled = loading || !this.currentMembership?.inviteCode;
+  }
+
   magicLinkForm?.classList.toggle("hidden", authenticated);
+  this.dom.showCodeFormBtn?.classList.toggle("hidden", authenticated);
+  this.dom.otpForm?.classList.toggle("hidden", authenticated || !this.otpFormOpen);
+  this.dom.otpHelp?.classList.toggle("hidden", authenticated || !this.otpFormOpen);
   authActions?.classList.toggle("hidden", !authenticated);
   if (magicLinkBtn) magicLinkBtn.disabled = loading;
+  if (this.dom.verifyCodeBtn) this.dom.verifyCodeBtn.disabled = loading;
   if (signOutBtn) signOutBtn.disabled = loading;
 
   if (authSummary) {
@@ -1716,7 +2046,9 @@ updateAuthorizationUI() {
     } else if (loading) {
       authSummary.textContent = "Laddar …";
     } else if (!authenticated) {
-      authSummary.textContent = "Logga in med e-post för att öppna familjens privata data. De grå funktionerna blir tillgängliga efter inloggning.";
+      authSummary.textContent = this.isStandaloneApp()
+        ? "Hemskärmsappen har en egen inloggning. Använd engångskoden från mejlet här i appen för att öppna familjens privata data."
+        : "Logga in med e-post för att öppna familjens privata data. De grå funktionerna blir tillgängliga efter inloggning.";
     } else if (!hasAccess) {
       authSummary.textContent = "Du är inloggad men väntar på att läggas till i familjen.";
     } else {
@@ -1818,9 +2150,28 @@ cacheDom() {
   this.dom.magicLinkForm = document.getElementById("magicLinkForm");
   this.dom.authEmail = document.getElementById("authEmail");
   this.dom.magicLinkBtn = document.getElementById("magicLinkBtn");
+  this.dom.otpForm = document.getElementById("otpForm");
+  this.dom.otpEmail = document.getElementById("otpEmail");
+  this.dom.otpCode = document.getElementById("otpCode");
+  this.dom.verifyCodeBtn = document.getElementById("verifyCodeBtn");
+  this.dom.showCodeFormBtn = document.getElementById("showCodeFormBtn");
+  this.dom.otpHelp = document.getElementById("otpHelp");
+  this.dom.installHelp = document.getElementById("installHelp");
+  this.dom.installAppBtn = document.getElementById("installAppBtn");
   this.dom.authActions = document.getElementById("authActions");
   this.dom.signOutBtn = document.getElementById("signOutBtn");
   this.dom.importLocalEventsBtn = document.getElementById("importLocalEventsBtn");
+  this.dom.accessApplyPanel = document.getElementById("accessApplyPanel");
+  this.dom.accessApplyForm = document.getElementById("accessApplyForm");
+  this.dom.accessName = document.getElementById("accessName");
+  this.dom.accessEmail = document.getElementById("accessEmail");
+  this.dom.accessWebsite = document.getElementById("accessWebsite");
+  this.dom.accessApplyBtn = document.getElementById("accessApplyBtn");
+  this.dom.accessApplyStatus = document.getElementById("accessApplyStatus");
+  this.dom.accessAdminPanel = document.getElementById("accessAdminPanel");
+  this.dom.accessAdminStatus = document.getElementById("accessAdminStatus");
+  this.dom.accessRequestList = document.getElementById("accessRequestList");
+  this.dom.shareFamilyLinkBtn = document.getElementById("shareFamilyLinkBtn");
 
   this.dom.openSound = document.getElementById("openSound");
   this.dom.yearSelect = document.getElementById("yearSelect");
@@ -3471,6 +3822,43 @@ deleteUserEventById(id) {
     });
   }
 
+  this.dom.otpForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await this.verifyEmailCode();
+  });
+  this.dom.showCodeFormBtn?.addEventListener("click", () => {
+    this.otpFormOpen = !this.otpFormOpen;
+    if (this.otpFormOpen && !this.dom.otpEmail.value) {
+      this.dom.otpEmail.value = this.dom.authEmail.value.trim();
+    }
+    this.updateAuthorizationUI();
+    // Let the user open the keyboard: iOS otherwise scrolls the title under its status bar.
+  });
+  this.dom.installAppBtn?.addEventListener("click", () => this.promptInstall());
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    this._installPrompt = event;
+    this.updateInstallUI();
+  });
+  window.addEventListener("appinstalled", () => {
+    this._installPrompt = null;
+    this.updateInstallUI();
+  });
+  window.addEventListener("pageshow", () => this.correctUnsafeTopOnResume());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") this.correctUnsafeTopOnResume();
+  });
+
+  this.dom.accessApplyForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await this.submitAccessApplication();
+  });
+  this.dom.shareFamilyLinkBtn?.addEventListener("click", () => this.copyFamilyShareLink());
+  this.dom.accessRequestList?.addEventListener("click", async (event) => {
+    const button = event.target.closest("button[data-action][data-id]");
+    if (button) await this.actOnAccessRequest(button.dataset.action, button.dataset.id);
+  });
+
   if (signOutBtn) {
     signOutBtn.addEventListener("click", async () => {
       await this.signOut();
@@ -3614,6 +4002,7 @@ deleteUserEventById(id) {
     this.selectedYear = this.currentYear;
     this.loadFamilyCode();
     this.cacheDom();
+    this.updateInstallUI();
 
     if (this.dom.familyCodeInput) {
       this.dom.familyCodeInput.value = this.getCurrentFamilyCode();
