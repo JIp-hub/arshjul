@@ -44,7 +44,7 @@ Den lokala native stacken är experimentell. Testerna behöver CLI 3.4 och tillf
 4. **Familjesäkerhet:** Bekräfta i isolerad miljö med syntetiska adresser att anonym/sökande/vanlig medlem inte kan läsa ansökningskön eller bevilja sig själv åtkomst, att avslagen ansökan inte får data och att godkänd men ännu inte kodinloggad person inte får familjedata.
 5. **Produktionsförberedelse:** Läs av faktiska Auth-inställningar, tillåten GitHub Pages-redirect och e-postmall. Publicera e-postmallen med `{{ .Token }}` tillsammans med kodflödet; utan den kan en installerad iPhone-app inte använda kodinloggningen. Verifiera sedan ett syntetiskt sluttest på publicerad version före delning av familjelänken.
 
-Punkt 1–3 kräver verkliga mobiler och är ännu inte verifierade. Inga produktionsändringar eller publiceringar har gjorts.
+Punkt 1–3 kräver verkliga mobiler och är ännu inte slutverifierade. Ett påbörjat iPhone-test bekräftade installation och att kodformuläret öppnas, men visade att rubriken kunde hamna under statusfältet när formuläret öppnades. Arbetsgrenen har därefter fått större stabil toppmarginal, en rubrik som stannar under statusområdet vid rullning och borttagen automatisk fokus på kodfältet. Lokalt mobiltest passerar; fysisk omprovning återstår. Inga produktionsändringar eller publiceringar har gjorts.
 
 ## Efter uttryckligt godkännande
 

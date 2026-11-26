@@ -63,7 +63,8 @@ try {
 
   // Exercise the actual app controls in a simulated standalone context.
   const installed = await browser.newContext({ viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+    deviceScaleFactor: 3, isMobile: true, hasTouch: true,
+    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" });
   await installed.addInitScript(() => {
     Object.defineProperty(navigator, "standalone", { value: true });
     window.supabase = { createClient: () => ({ auth: {
@@ -83,6 +84,14 @@ try {
   await installedPage.locator("#authPanel").waitFor({ state: "visible" });
   assert.match(await installedPage.locator("#authSummary").innerText(), /Hemskärmsappen/);
   assert.equal(await installedPage.locator("#installHelp").isVisible(), false);
+  assert.equal(await installedPage.locator("body").evaluate((body) => body.classList.contains("ios-standalone")), true);
+  await installedPage.locator("#showCodeFormBtn").click();
+  await installedPage.locator("#otpForm").waitFor({ state: "visible" });
+  assert.equal(await installedPage.locator("#otpCode").evaluate((input) => document.activeElement === input), false);
+  await installedPage.evaluate(() => window.scrollTo(0, 400));
+  const headingTop = await installedPage.locator("h1").evaluate((heading) => heading.getBoundingClientRect().top);
+  assert.ok(headingTop >= 64, "standalone heading must stay below status area when scrolled");
+  await installedPage.locator("#showCodeFormBtn").click();
   await installedPage.locator("#authEmail").fill("member@example.invalid");
   await installedPage.locator("#magicLinkBtn").click();
   await installedPage.locator("#otpForm").waitFor({ state: "visible" });

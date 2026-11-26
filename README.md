@@ -39,4 +39,6 @@ python3 -m http.server 8768 --bind 127.0.0.1
 
 Den incheckade `supabase-config.js` är avsiktligt tom. En lokal Supabase-anslutning kan byggas till en ignorerad eller tillfällig fil med `scripts/build-supabase-config.mjs` och de tre publika variablerna i `.env.example`.
 
+Port 8768 i exemplet ovan visar webbappen. Den lokala mejlinkorgen i Supabase-teststacken är Mailpit på `http://127.0.0.1:54324/`; den visar endast mejl från den lokala Auth-tjänsten.
+
 Aktuell driftsättning, Auth, RLS, bootstrap och datamigrering beskrivs i [SUPABASE_SETUP.md](SUPABASE_SETUP.md). [REGRESSION_CHECKLIST.md](REGRESSION_CHECKLIST.md) är V1:s kontrollista. `PHASE_B_PLAN.md` och `PROJECT_PLAN.md` är historiska beslutsunderlag.

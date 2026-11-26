@@ -248,6 +248,24 @@ body.supabase-mode #exitAdminBtn {
     padding-left: max(1rem, env(safe-area-inset-left, 0px));
   }
 
+  /* iOS can report a smaller safe-area inset while the keyboard is opening. */
+  body.ios-standalone {
+    padding-top: max(5rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));
+  }
+
+  body.ios-standalone > h1 {
+    position: sticky;
+    top: max(4rem, env(safe-area-inset-top, 0px));
+    z-index: 20;
+    margin-top: 0;
+    padding: 0.2rem 0;
+    background: #fff;
+  }
+
+  body.ios-standalone #otpCode {
+    scroll-margin-top: 9rem;
+  }
+
   .overlay {
     align-items: flex-start;
     padding: max(0.75rem, env(safe-area-inset-top, 0px))
@@ -1826,6 +1844,8 @@ isStandaloneApp() {
 },
 
 updateInstallUI() {
+  document.body.classList.toggle("ios-standalone",
+    /iPhone|iPad|iPod/.test(window.navigator.userAgent) && this.isStandaloneApp());
   this.dom.installHelp?.classList.toggle("hidden", this.isStandaloneApp());
   this.dom.installAppBtn?.classList.toggle("hidden", !this._installPrompt || this.isStandaloneApp());
 },
@@ -3787,7 +3807,7 @@ deleteUserEventById(id) {
       this.dom.otpEmail.value = this.dom.authEmail.value.trim();
     }
     this.updateAuthorizationUI();
-    if (this.otpFormOpen) this.dom.otpCode.focus();
+    // Let the user open the keyboard: iOS otherwise scrolls the title under its status bar.
   });
   this.dom.installAppBtn?.addEventListener("click", () => this.promptInstall());
   window.addEventListener("beforeinstallprompt", (event) => {
